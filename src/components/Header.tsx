@@ -1,5 +1,16 @@
 import React from 'react';
-import { FolderOpen, PlusSquare, Printer, CheckCircle2, Image as ImageIcon, Filter, Sun, Moon, Eye } from 'lucide-react';
+import {
+  FolderOpen,
+  PlusSquare,
+  Printer,
+  CheckCircle2,
+  Image as ImageIcon,
+  Filter,
+  Sun,
+  Moon,
+  Eye,
+  ListOrdered,
+} from 'lucide-react';
 import { FilterMode, ThemeMode } from '../types';
 
 interface HeaderProps {
@@ -9,10 +20,13 @@ interface HeaderProps {
   unprintedCount: number;
   filterMode: FilterMode;
   theme: ThemeMode;
+  queueCount: number;
+  activeJobCount: number;
   onSelectFolder: () => void;
   onSelectFiles: () => void;
   onToggleTheme: () => void;
   onFilterChange: (mode: FilterMode) => void;
+  onToggleQueue: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,10 +36,13 @@ export const Header: React.FC<HeaderProps> = ({
   unprintedCount,
   filterMode,
   theme,
+  queueCount,
+  activeJobCount,
   onSelectFolder,
   onSelectFiles,
   onToggleTheme,
   onFilterChange,
+  onToggleQueue,
 }) => {
   return (
     <header className="header-container">
@@ -59,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Sağ: İstatistikler, Filtre ve Tema Değiştirici */}
+      {/* Sağ: İstatistikler, Filtre, Kuyruk Butonu ve Tema Değiştirici */}
       <div className="header-actions">
         {totalCount > 0 && (
           <div className="filter-group">
@@ -88,6 +105,18 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         )}
+
+        {/* Baskı Kuyruğu Çekmece Butonu */}
+        <button
+          className={`queue-trigger-btn ${activeJobCount > 0 ? 'has-active' : ''}`}
+          onClick={onToggleQueue}
+          title="Baskı Kuyruğu & Geçmişi (Q)"
+        >
+          <ListOrdered size={15} />
+          <span>Kuyruk</span>
+          {queueCount > 0 && <span className="queue-badge">{queueCount}</span>}
+          {activeJobCount > 0 && <span className="queue-pulse-dot" />}
+        </button>
 
         {/* Tema Değiştirici Buton */}
         <button

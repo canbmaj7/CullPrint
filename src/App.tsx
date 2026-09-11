@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { UploadCloud } from 'lucide-react';
-import { PhotoItem, FilterMode, PrinterState, ThemeMode } from './types';
+import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob } from './types';
 import { generatePrintRaster } from './utils/rasterizer';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
 import { PrinterSidebar } from './components/PrinterSidebar';
+import { QueueDrawer } from './components/QueueDrawer';
 import { FileItem } from './vite-env';
 
 export const App: React.FC = () => {
@@ -33,6 +34,33 @@ export const App: React.FC = () => {
     });
   };
 
+  // Baskı Kuyruğu ve Rulo Sayacı State'leri
+  const [queue, setQueue] = useState<PrintJob[]>(() => {
+    try {
+      const saved = localStorage.getItem('cullprint_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [rollPrintsCount, setRollPrintsCount] = useState<number>(() => {
+    const saved = localStorage.getItem('cullprint_roll_prints');
+    return saved ? parseInt(saved, 10) : 0;
+  });
+
+  const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('cullprint_queue', JSON.stringify(queue.slice(0, 100)));
+    } catch {}
+  }, [queue]);
+
+  useEffect(() => {
+    localStorage.setItem('cullprint_roll_prints', rollPrintsCount.toString());
+  }, [rollPrintsCount]);
+
   // Yazıcı Ayarları
   const [printers, setPrinters] = useState<PrinterState[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
@@ -40,6 +68,33 @@ export const App: React.FC = () => {
   const [copies, setCopies] = useState<number>(1);
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [lastPrintStatus, setLastPrintStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  // CUPS Kuyruğunu Canlı İzle ve Tamamlanan İşleri Güncelle
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    const syncCupsQueue = async () => {
+      try {
+        const activeCupsJobs = await window.electronAPI!.getCupsQueue();
+        const activeCupsIds = new Set(activeCupsJobs.map((j) => j.id));
+
+        setQueue((prev) =>
+          prev.map((job) => {
+            if (job.cupsJobId && (job.status === 'printing' || job.status === 'queued')) {
+              if (!activeCupsIds.has(job.cupsJobId)) {
+                return { ...job, status: 'completed' };
+              }
+            }
+            return job;
+          })
+        );
+      } catch {
+        // ignore
+      }
+    };
+
+    const interval = setInterval(syncCupsQueue, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 1. Sistemdeki Yazıcıları Yükle ve USB Takılmasını Canlı İzle
   useEffect(() => {
@@ -228,6 +283,7 @@ export const App: React.FC = () => {
   const handlePrintAndNext = useCallback(async () => {
     if (!currentPhoto || !window.electronAPI || isPrinting) return;
 
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     try {
       setIsPrinting(true);
       setLastPrintStatus(null);
@@ -248,6 +304,22 @@ export const App: React.FC = () => {
         userRotation: currentPhoto.userRotation || 0,
       });
 
+      // Kuyruğa 'printing' olarak ekle
+      const newJob: PrintJob = {
+        id: jobId,
+        photoName: currentPhoto.name,
+        photoPath: currentPhoto.path,
+        copies,
+        finish,
+        mediaSize: 'w432h576',
+        timestamp: Date.now(),
+        status: 'printing',
+        cropOffsetX: currentPhoto.cropOffsetX || 0,
+        cropOffsetY: currentPhoto.cropOffsetY || 0,
+        userRotation: currentPhoto.userRotation || 0,
+      };
+      setQueue((prev) => [newJob, ...prev]);
+
       // 2. Geçici spool dosyasına kaydet
       const spoolPath = await window.electronAPI.saveTempPrintFile(base64Raster);
 
@@ -261,6 +333,19 @@ export const App: React.FC = () => {
       });
 
       if (printResult.success) {
+        setRollPrintsCount((prev) => prev + copies);
+        setQueue((prev) =>
+          prev.map((j) =>
+            j.id === jobId
+              ? {
+                  ...j,
+                  cupsJobId: printResult.cupsJobId,
+                  status: printResult.cupsJobId ? 'queued' : 'completed',
+                }
+              : j
+          )
+        );
+
         // Durumu güncelle: Basıldı rozeti
         setPhotos((prev) =>
           prev.map((p) =>
@@ -280,6 +365,13 @@ export const App: React.FC = () => {
           setSelectedIndex((prev) => prev + 1);
         }
       } else {
+        setQueue((prev) =>
+          prev.map((j) =>
+            j.id === jobId
+              ? { ...j, status: 'failed', errorMessage: printResult.error }
+              : j
+          )
+        );
         setLastPrintStatus({
           success: false,
           message: `Yazdırma hatası: ${printResult.error || 'Bilinmeyen hata'}`,
@@ -287,6 +379,13 @@ export const App: React.FC = () => {
       }
     } catch (err) {
       console.error('Yazdırma işlemi başarısız:', err);
+      setQueue((prev) =>
+        prev.map((j) =>
+          j.id === jobId
+            ? { ...j, status: 'failed', errorMessage: 'Baskı hazırlığı sırasında hata oluştu' }
+            : j
+        )
+      );
       setLastPrintStatus({
         success: false,
         message: 'Baskı hazırlığı sırasında hata oluştu.',
@@ -295,6 +394,121 @@ export const App: React.FC = () => {
       setIsPrinting(false);
     }
   }, [currentPhoto, isPrinting, selectedPrinter, copies, finish, selectedIndex, filteredPhotos.length]);
+
+  // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
+  const handleReprintJob = useCallback(
+    async (job: PrintJob) => {
+      if (!window.electronAPI || isPrinting) return;
+
+      const newJobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      try {
+        setIsPrinting(true);
+        setLastPrintStatus(null);
+
+        const targetPhoto = photos.find((p) => p.path === job.photoPath);
+        const isRotated90 = job.userRotation === 90 || job.userRotation === 270;
+        const effectiveIsLandscape = isRotated90
+          ? !(targetPhoto?.isLandscape ?? true)
+          : (targetPhoto?.isLandscape ?? true);
+
+        const mediaUrl = `media://${encodeURI(job.photoPath)}`;
+        const base64Raster = await generatePrintRaster({
+          imageUrl: mediaUrl,
+          isLandscape: effectiveIsLandscape,
+          cropOffsetX: job.cropOffsetX,
+          cropOffsetY: job.cropOffsetY,
+          userRotation: job.userRotation,
+        });
+
+        const newJob: PrintJob = {
+          ...job,
+          id: newJobId,
+          timestamp: Date.now(),
+          status: 'printing',
+          cupsJobId: undefined,
+          errorMessage: undefined,
+        };
+        setQueue((prev) => [newJob, ...prev]);
+
+        const spoolPath = await window.electronAPI.saveTempPrintFile(base64Raster);
+        const printResult = await window.electronAPI.executePrint({
+          filePath: spoolPath,
+          printerName: selectedPrinter,
+          copies: job.copies,
+          mediaSize: job.mediaSize || 'w432h576',
+          finish: job.finish,
+        });
+
+        if (printResult.success) {
+          setRollPrintsCount((prev) => prev + job.copies);
+          setQueue((prev) =>
+            prev.map((j) =>
+              j.id === newJobId
+                ? {
+                    ...j,
+                    cupsJobId: printResult.cupsJobId,
+                    status: printResult.cupsJobId ? 'queued' : 'completed',
+                  }
+                : j
+            )
+          );
+          setPhotos((prev) =>
+            prev.map((p) =>
+              p.path === job.photoPath
+                ? { ...p, printed: true, printCount: (p.printCount || 0) + job.copies }
+                : p
+            )
+          );
+          setLastPrintStatus({
+            success: true,
+            message: `${job.photoName} (${job.copies}x ${job.finish}) tekrar basıldı.`,
+          });
+        } else {
+          setQueue((prev) =>
+            prev.map((j) =>
+              j.id === newJobId
+                ? { ...j, status: 'failed', errorMessage: printResult.error }
+                : j
+            )
+          );
+          setLastPrintStatus({
+            success: false,
+            message: `Tekrar basma hatası: ${printResult.error || 'Bilinmeyen hata'}`,
+          });
+        }
+      } catch (err) {
+        console.error('Tekrar basma hatası:', err);
+      } finally {
+        setIsPrinting(false);
+      }
+    },
+    [isPrinting, photos, selectedPrinter]
+  );
+
+  // 4.6. Kuyruktaki İşi İptal Et
+  const handleCancelJob = useCallback(async (jobId: string) => {
+    if (!window.electronAPI) return;
+    try {
+      const res = await window.electronAPI.cancelPrintJob(jobId);
+      if (res.success) {
+        setQueue((prev) =>
+          prev.map((j) =>
+            j.cupsJobId === jobId || j.id === jobId ? { ...j, status: 'cancelled' } : j
+          )
+        );
+      }
+    } catch (err) {
+      console.error('İş iptal edilemedi:', err);
+    }
+  }, []);
+
+  const handleClearHistory = useCallback(() => {
+    setQueue((prev) => prev.filter((j) => j.status === 'printing' || j.status === 'queued'));
+  }, []);
+
+  const handleResetRoll = useCallback(() => {
+    setRollPrintsCount(0);
+  }, []);
 
   // 5. Global Klavye Kısayolları
   useEffect(() => {
@@ -343,6 +557,19 @@ export const App: React.FC = () => {
           handleResetCrop();
           break;
 
+        case 'q':
+        case 'Q':
+          e.preventDefault();
+          setIsQueueOpen((prev) => !prev);
+          break;
+
+        case 'Escape':
+          if (isQueueOpen) {
+            e.preventDefault();
+            setIsQueueOpen(false);
+          }
+          break;
+
         case '1':
         case '2':
         case '3':
@@ -362,11 +589,22 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrintAndNext, handleAdjustCrop, handleRotate, handleResetCrop, filteredPhotos.length]);
+  }, [
+    handlePrintAndNext,
+    handleAdjustCrop,
+    handleRotate,
+    handleResetCrop,
+    filteredPhotos.length,
+    isQueueOpen,
+  ]);
 
   // İstatistikler
   const printedCount = useMemo(() => photos.filter((p) => p.printed).length, [photos]);
   const unprintedCount = photos.length - printedCount;
+  const activeJobCount = useMemo(
+    () => queue.filter((j) => j.status === 'printing' || j.status === 'queued').length,
+    [queue]
+  );
 
   return (
     <div
@@ -392,6 +630,8 @@ export const App: React.FC = () => {
         unprintedCount={unprintedCount}
         filterMode={filterMode}
         theme={theme}
+        queueCount={queue.length}
+        activeJobCount={activeJobCount}
         onSelectFolder={handleSelectFolder}
         onSelectFiles={handleSelectFiles}
         onToggleTheme={toggleTheme}
@@ -399,6 +639,7 @@ export const App: React.FC = () => {
           setFilterMode(mode);
           setSelectedIndex(0);
         }}
+        onToggleQueue={() => setIsQueueOpen((prev) => !prev)}
       />
 
       {/* Ana Gövde (Orta Kadraj + Sağ Yazıcı Paneli) */}
@@ -435,6 +676,19 @@ export const App: React.FC = () => {
           onSelect={(idx) => setSelectedIndex(idx)}
         />
       </footer>
+
+      {/* Baskı Kuyruğu Çekmecesi (Slide-Over Drawer) */}
+      <QueueDrawer
+        isOpen={isQueueOpen}
+        onClose={() => setIsQueueOpen(false)}
+        queue={queue}
+        onCancelJob={handleCancelJob}
+        onReprintJob={handleReprintJob}
+        onClearHistory={handleClearHistory}
+        rollPrintsCount={rollPrintsCount}
+        onResetRoll={handleResetRoll}
+        rollCapacity={200}
+      />
     </div>
   );
 };

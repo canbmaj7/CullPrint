@@ -16,6 +16,7 @@
 - [x] Capture One / Leica tarzı minimalist karanlık stüdyo teması oluşturuldu.
 - [x] Linux AppImage derlendi ve doğrulandı (`release/CullPrint-1.0.0.AppImage`).
 - [x] GitHub Actions çapraz platform dağıtım iş akışı (`release.yml`) hazırlandı.
+- [x] Baskı Kuyruğu & Geçmişi Çekmecesi (QueueDrawer, CUPS senkronizasyonu, tek tıkla tekrar basma, rulo sayacı) tamamlandı.
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
 - [ ] Sahada DNP DS620 ile ilk fiziksel baskı testi.

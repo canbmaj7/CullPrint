@@ -27,6 +27,14 @@ export interface PrintJobParams {
   finish: string;    // e.g., 'Glossy', 'Matte'
 }
 
+export interface CupsJobInfo {
+  id: string;
+  printer: string;
+  user: string;
+  size: string;
+  date: string;
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
   selectFiles: (): Promise<FileItem[]> => ipcRenderer.invoke('select-files'),
@@ -34,8 +42,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPrinters: (): Promise<PrinterInfo[]> => ipcRenderer.invoke('get-printers'),
   getPrinterOptions: (printerName: string) => ipcRenderer.invoke('get-printer-options', printerName),
   saveTempPrintFile: (base64Data: string): Promise<string> => ipcRenderer.invoke('save-temp-print-file', base64Data),
-  executePrint: (params: PrintJobParams): Promise<{ success: boolean; output: string; error?: string }> =>
+  executePrint: (params: PrintJobParams): Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }> =>
     ipcRenderer.invoke('execute-print', params),
+  cancelPrintJob: (jobId: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('cancel-print-job', jobId),
+  getCupsQueue: (): Promise<CupsJobInfo[]> => ipcRenderer.invoke('get-cups-queue'),
   getFileInfo: (filePath: string): Promise<FileItem | null> => ipcRenderer.invoke('get-file-info', filePath),
   getFilePath: (file: File): string => {
     try {

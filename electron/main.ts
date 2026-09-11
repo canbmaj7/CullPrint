@@ -391,9 +391,17 @@ ipcMain.handle(
       console.log('Baskı komutu çalıştırılıyor:', cmd);
       const { stdout, stderr } = await execAsync(cmd);
 
+      // Parse CUPS Job ID (e.g. "request id is Dai_Nippon_Printing_DP-DS620-42 (1 file(s))")
+      let cupsJobId: string | undefined;
+      const match = stdout.match(/request id is ([^\s]+)/i);
+      if (match) {
+        cupsJobId = match[1];
+      }
+
       return {
         success: true,
         output: stdout.trim(),
+        cupsJobId,
         error: stderr ? stderr.trim() : undefined,
       };
     } catch (err: unknown) {
@@ -403,3 +411,43 @@ ipcMain.handle(
     }
   }
 );
+
+// 7. Cancel Print Job via CUPS
+ipcMain.handle('cancel-print-job', async (_event, jobId: string) => {
+  try {
+    if (!jobId) return { success: false, error: 'Geçersiz iş ID' };
+    const sanitizedId = jobId.replace(/[^a-zA-Z0-9_-]/g, '');
+    await execAsync(`cancel ${sanitizedId}`);
+    return { success: true };
+  } catch (err: unknown) {
+    console.warn('CUPS iş iptali hatası:', err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errorMsg };
+  }
+});
+
+// 8. Get CUPS Active Print Queue
+ipcMain.handle('get-cups-queue', async () => {
+  try {
+    const { stdout } = await execAsync('lpstat -o');
+    const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+    const jobs = [];
+
+    for (const line of lines) {
+      // Format: "Dai_Nippon_Printing_DP-DS620-42 username 1024 Fri 11 Sep 17:00:00 2026"
+      const parts = line.split(/\s+/);
+      if (parts.length >= 4) {
+        const id = parts[0];
+        const user = parts[1];
+        const size = parts[2];
+        const date = parts.slice(3).join(' ');
+        const printer = id.replace(/-\d+$/, '');
+        jobs.push({ id, printer, user, size, date });
+      }
+    }
+    return jobs;
+  } catch (err) {
+    console.warn('CUPS kuyruğu okunamadı:', err);
+    return [];
+  }
+});

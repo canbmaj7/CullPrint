@@ -31,6 +31,11 @@
 10. **Dağıtım ve CI/CD:**
    - `.github/workflows/release.yml` ile Linux, Windows ve macOS için bulut derleme pipeline'ı kuruldu.
    - Yerel Linux `CullPrint-1.0.0.AppImage` paketi başarıyla derlendi ve test edildi.
+11. **Baskı Kuyruğu & Geçmişi Çekmecesi (Queue Drawer):**
+   - `Q` tuşu veya üst bar rozeti `[ 📋 Kuyruk (n) ]` ile sağdan açılan şık slide-over panel.
+   - CUPS kuyruğu ile arka plan senkronizasyonu (`lpstat -o`) ve anında iş iptali (`cancel <job_id>`).
+   - Tek tıkla "⟲ Tekrar Bas (Reprint)" akışı: Önceki kadraj ve yüzey ayarlarını koruyarak anında ek baskı gönderme.
+   - DNP DS620 6x8 rulo kağıt tüketim göstergesi (`X / 200 baskı`) ve yeni rulo sıfırlama sayacı.
 
 ## Sonraki Adımlar
 - Kullanıcının sahada / bilgisayarında uygulamayı test etmesi (`npm run dev` veya doğrudan AppImage ile).

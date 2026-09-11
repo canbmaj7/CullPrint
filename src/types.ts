@@ -25,3 +25,27 @@ export interface PrinterState {
   isDNP: boolean;
   usbConnected?: boolean;
 }
+
+export interface PrintJob {
+  id: string;
+  cupsJobId?: string;
+  photoName: string;
+  photoPath: string;
+  copies: number;
+  finish: 'Glossy' | 'Matte';
+  mediaSize: string;
+  timestamp: number;
+  status: 'queued' | 'printing' | 'completed' | 'failed' | 'cancelled';
+  errorMessage?: string;
+  cropOffsetX: number;
+  cropOffsetY: number;
+  userRotation: number;
+}
+
+export interface CupsJob {
+  id: string;
+  printer: string;
+  user: string;
+  size: string;
+  date: string;
+}
