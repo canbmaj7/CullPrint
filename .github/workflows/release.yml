@@ -1,0 +1,59 @@
+name: Release CullPrint
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build and Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build:linux
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run build:win
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cullprint-${{ matrix.os }}
+          path: |
+            release/*.AppImage
+            release/*.deb
+            release/*.exe
+            release/*.dmg
+            release/*.zip
