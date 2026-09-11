@@ -18,7 +18,7 @@ interface QueueDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   queue: PrintJob[];
-  onCancelJob: (jobId: string) => void;
+  onCancelJob: (job: PrintJob) => void;
   onReprintJob: (job: PrintJob) => void;
   onClearHistory: () => void;
   rollPrintsCount: number;
@@ -202,7 +202,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       {isBusy ? (
                         <button
                           className="job-cancel-btn"
-                          onClick={() => onCancelJob(job.cupsJobId || job.id)}
+                          onClick={() => onCancelJob(job)}
                           title="Bu işi CUPS kuyruğundan iptal et"
                         >
                           <Ban size={12} />

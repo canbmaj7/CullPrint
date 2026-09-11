@@ -2,11 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
-import { exec } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import exifr from 'exifr';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 function getJpegDimensions(buffer: Buffer) {
   let offset = 2;
@@ -379,17 +380,21 @@ ipcMain.handle(
         return { success: false, output: '', error: 'Baskı dosyası bulunamadı.' };
       }
 
-      // Build lp command with options for DNP DS620
+      // Build lp command args for DNP DS620
       // -d <printer>
       // -n <copies>
       // -o media=w432h576 (6x8 inç)
       // -o StpLaminate=Glossy or Matte
-      const finishOption = finish ? `-o StpLaminate=${finish}` : '';
-      const mediaOption = mediaSize ? `-o media=${mediaSize}` : '-o media=w432h576';
-      const cmd = `lp -d "${printerName}" -n ${copies} ${mediaOption} ${finishOption} "${filePath}"`;
+      const args = ['-d', printerName, '-n', String(copies)];
+      const mediaOption = mediaSize ? `media=${mediaSize}` : 'media=w432h576';
+      args.push('-o', mediaOption);
+      if (finish) {
+        args.push('-o', `StpLaminate=${finish}`);
+      }
+      args.push(filePath);
 
-      console.log('Baskı komutu çalıştırılıyor:', cmd);
-      const { stdout, stderr } = await execAsync(cmd);
+      console.log('Baskı komutu çalıştırılıyor: lp', args.join(' '));
+      const { stdout, stderr } = await execFileAsync('lp', args);
 
       // Parse CUPS Job ID (e.g. "request id is Dai_Nippon_Printing_DP-DS620-42 (1 file(s))")
       let cupsJobId: string | undefined;
@@ -417,7 +422,7 @@ ipcMain.handle('cancel-print-job', async (_event, jobId: string) => {
   try {
     if (!jobId) return { success: false, error: 'Geçersiz iş ID' };
     const sanitizedId = jobId.replace(/[^a-zA-Z0-9_-]/g, '');
-    await execAsync(`cancel ${sanitizedId}`);
+    await execFileAsync('cancel', [sanitizedId]);
     return { success: true };
   } catch (err: unknown) {
     console.warn('CUPS iş iptali hatası:', err);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob } from './types';
 import { generatePrintRaster } from './utils/rasterizer';
@@ -15,6 +15,8 @@ export const App: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const dragCounterRef = useRef<number>(0);
+  const nextTargetPathRef = useRef<string | null>(null);
 
   // Tema Yönetimi (Dark / Light / Neutral)
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -183,6 +185,13 @@ export const App: React.FC = () => {
   };
 
   // 2.6 Drag & Drop (Sürükle - Bırak)
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -192,8 +201,9 @@ export const App: React.FC = () => {
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Eğer pencere dışına çıkıldıysa kapat
-    if (e.currentTarget === e.target) {
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
       setIsDragOver(false);
     }
   };
@@ -202,14 +212,16 @@ export const App: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    dragCounterRef.current = 0;
 
     if (!window.electronAPI || !e.dataTransfer.files) return;
 
+    const files = Array.from(e.dataTransfer.files);
     const validExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
     const droppedFiles: FileItem[] = [];
 
-    for (let i = 0; i < e.dataTransfer.files.length; i++) {
-      const file = e.dataTransfer.files[i];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       const fullPath = window.electronAPI.getFilePath(file);
       if (fullPath) {
         const ext = fullPath.substring(fullPath.lastIndexOf('.')).toLowerCase();
@@ -240,6 +252,17 @@ export const App: React.FC = () => {
     if (filterMode === 'unprinted') return photos.filter((p) => !p.printed);
     return photos;
   }, [photos, filterMode]);
+
+  // Baskı sonrası bir sonraki hedefe geçiş
+  useEffect(() => {
+    if (!nextTargetPathRef.current) return;
+    const targetPath = nextTargetPathRef.current;
+    nextTargetPathRef.current = null;
+    const newIdx = filteredPhotos.findIndex((p) => p.path === targetPath);
+    if (newIdx !== -1) {
+      setSelectedIndex(newIdx);
+    }
+  }, [filteredPhotos]);
 
   // Seçili aktif fotoğraf
   const currentPhoto = filteredPhotos[selectedIndex] || null;
@@ -282,6 +305,10 @@ export const App: React.FC = () => {
   // 4. Yazdırma ve Sonrakine Geçme (Baskı Motoru)
   const handlePrintAndNext = useCallback(async () => {
     if (!currentPhoto || !window.electronAPI || isPrinting) return;
+
+    // Hedef fotoğrafı belirle (mevcut fotoğraftan bir sonraki veya yoksa bir önceki)
+    const targetPhoto = filteredPhotos[selectedIndex + 1] ?? filteredPhotos[selectedIndex - 1] ?? null;
+    nextTargetPathRef.current = targetPhoto ? targetPhoto.path : null;
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     try {
@@ -359,12 +386,8 @@ export const App: React.FC = () => {
           success: true,
           message: `${currentPhoto.name} (${copies}x ${finish}) kuyruğa gönderildi.`,
         });
-
-        // 4. Otomatik bir sonraki fotoğrafa geç
-        if (selectedIndex < filteredPhotos.length - 1) {
-          setSelectedIndex((prev) => prev + 1);
-        }
       } else {
+        nextTargetPathRef.current = null;
         setQueue((prev) =>
           prev.map((j) =>
             j.id === jobId
@@ -378,6 +401,7 @@ export const App: React.FC = () => {
         });
       }
     } catch (err) {
+      nextTargetPathRef.current = null;
       console.error('Yazdırma işlemi başarısız:', err);
       setQueue((prev) =>
         prev.map((j) =>
@@ -393,7 +417,7 @@ export const App: React.FC = () => {
     } finally {
       setIsPrinting(false);
     }
-  }, [currentPhoto, isPrinting, selectedPrinter, copies, finish, selectedIndex, filteredPhotos.length]);
+  }, [currentPhoto, isPrinting, selectedPrinter, copies, finish, selectedIndex, filteredPhotos]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
   const handleReprintJob = useCallback(
@@ -486,14 +510,22 @@ export const App: React.FC = () => {
   );
 
   // 4.6. Kuyruktaki İşi İptal Et
-  const handleCancelJob = useCallback(async (jobId: string) => {
+  const handleCancelJob = useCallback(async (job: PrintJob) => {
     if (!window.electronAPI) return;
+    if (!job.cupsJobId) {
+      setLastPrintStatus({
+        success: false,
+        message: 'Bu iş henüz CUPS kuyruğuna ulaşmadı, birkaç saniye sonra tekrar deneyin.',
+      });
+      return;
+    }
+
     try {
-      const res = await window.electronAPI.cancelPrintJob(jobId);
+      const res = await window.electronAPI.cancelPrintJob(job.cupsJobId);
       if (res.success) {
         setQueue((prev) =>
           prev.map((j) =>
-            j.cupsJobId === jobId || j.id === jobId ? { ...j, status: 'cancelled' } : j
+            j.id === job.id ? { ...j, status: 'cancelled' } : j
           )
         );
       }
@@ -515,6 +547,10 @@ export const App: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      if (isQueueOpen && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q') {
         return;
       }
 
@@ -609,6 +645,7 @@ export const App: React.FC = () => {
   return (
     <div
       className="app-shell"
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

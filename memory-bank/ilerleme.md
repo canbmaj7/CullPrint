@@ -17,6 +17,7 @@
 - [x] Linux AppImage derlendi ve doğrulandı (`release/CullPrint-1.0.0.AppImage`).
 - [x] GitHub Actions çapraz platform dağıtım iş akışı (`release.yml`) hazırlandı.
 - [x] Baskı Kuyruğu & Geçmişi Çekmecesi (QueueDrawer, CUPS senkronizasyonu, tek tıkla tekrar basma, rulo sayacı) tamamlandı.
+- [x] 7 kritik kararlılık ve güvenlik hatası giderildi (fotoğraf atlama, tainted canvas, drag-drop await kaybı, cancel job ID, drawer klavye kilitleri, dragleave titremesi, execFileAsync dönüşümü).
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
 - [ ] Sahada DNP DS620 ile ilk fiziksel baskı testi.

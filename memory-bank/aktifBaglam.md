@@ -36,6 +36,14 @@
    - CUPS kuyruğu ile arka plan senkronizasyonu (`lpstat -o`) ve anında iş iptali (`cancel <job_id>`).
    - Tek tıkla "⟲ Tekrar Bas (Reprint)" akışı: Önceki kadraj ve yüzey ayarlarını koruyarak anında ek baskı gönderme.
    - DNP DS620 6x8 rulo kağıt tüketim göstergesi (`X / 200 baskı`) ve yeni rulo sıfırlama sayacı.
+12. **Kararlılık ve Güvenlik Düzeltmeleri (7 Onaylı Hata Çözümü):**
+   - **Fotoğraf Atlama Hatası:** `filterMode==='unprinted'` modunda basılan fotoğraf filtreden düştüğünde sonraki fotoğrafın atlanması sorunu `nextTargetPathRef` ve `useEffect` ile çözüldü.
+   - **Tainted Canvas Riski:** `rasterizer.ts` içindeki gereksiz `img.crossOrigin = 'anonymous'` kaldırılarak `media://` şemasında güvenlik hatası riski bertaraf edildi.
+   - **Sürükle-Bırak Çoklu Dosya Kaybı:** Chromium'daki async await sonrası `e.dataTransfer.files` erişim kaybı `Array.from()` kopyalaması ile giderildi.
+   - **CUPS İş İptali Güvenilirliği:** Henüz CUPS ID almamış işlerin sahte dahili ID ile iptale gönderilmesi engellendi; `onCancelJob` `PrintJob` nesnesi alacak şekilde güncellendi.
+   - **Kuyruk Arkası Klavye Kısayolları:** Çekmece açıkken arka plandaki fotoğrafın yön tuşları veya space ile etkilenmesi engellendi (yalnızca `Escape` ve `Q` aktif).
+   - **Sürükle-Bırak Titremesi:** Çocuk elementler arası geçişte `handleDragLeave` titremesi `dragCounterRef` sayacı ile çözüldü.
+   - **Güvenli Komut Çağrısı:** `execute-print` (`lp`) ve `cancel-print-job` (`cancel`) IPC işleyicileri `execAsync` yerine `execFileAsync` ve argüman dizisi kullanacak şekilde güncellendi.
 
 ## Sonraki Adımlar
 - Kullanıcının sahada / bilgisayarında uygulamayı test etmesi (`npm run dev` veya doğrudan AppImage ile).

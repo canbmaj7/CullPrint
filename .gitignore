@@ -43,3 +43,6 @@ out/
 # Local env files
 .env*.local
 .env
+
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json

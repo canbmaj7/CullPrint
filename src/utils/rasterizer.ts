@@ -23,7 +23,6 @@ export async function generatePrintRaster({
 }: RenderParams): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
 
     img.onload = () => {
       try {
