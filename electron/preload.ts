@@ -25,6 +25,28 @@ export interface PrintJobParams {
   copies: number;
   mediaSize: string; // e.g., 'w432h576'
   finish: string;    // e.g., 'Glossy', 'Matte'
+  mediaOptionName?: string;
+  finishOptionName?: string;
+}
+
+export interface PrinterOptionChoice {
+  value: string;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface PrinterOption {
+  name: string;
+  label: string;
+  choices: PrinterOptionChoice[];
+}
+
+export interface PrinterCapabilities {
+  printerName: string;
+  options: PrinterOption[];
+  mediaOptionName: string | null;
+  finishOptionName: string | null;
+  raw?: string;
 }
 
 export interface CupsJobInfo {
@@ -40,7 +62,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFiles: (): Promise<FileItem[]> => ipcRenderer.invoke('select-files'),
   readFolder: (folderPath: string): Promise<FileItem[]> => ipcRenderer.invoke('read-folder', folderPath),
   getPrinters: (): Promise<PrinterInfo[]> => ipcRenderer.invoke('get-printers'),
-  getPrinterOptions: (printerName: string) => ipcRenderer.invoke('get-printer-options', printerName),
+  getPrinterOptions: (printerName: string): Promise<PrinterCapabilities & { raw: string }> =>
+    ipcRenderer.invoke('get-printer-options', printerName),
   saveTempPrintFile: (base64Data: string): Promise<string> => ipcRenderer.invoke('save-temp-print-file', base64Data),
   executePrint: (params: PrintJobParams): Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }> =>
     ipcRenderer.invoke('execute-print', params),

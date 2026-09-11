@@ -25,6 +25,28 @@ export interface PrintJobParams {
   copies: number;
   mediaSize: string;
   finish: string;
+  mediaOptionName?: string;
+  finishOptionName?: string;
+}
+
+export interface PrinterOptionChoice {
+  value: string;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface PrinterOption {
+  name: string;
+  label: string;
+  choices: PrinterOptionChoice[];
+}
+
+export interface PrinterCapabilities {
+  printerName: string;
+  options: PrinterOption[];
+  mediaOptionName: string | null;
+  finishOptionName: string | null;
+  raw?: string;
 }
 
 export interface CupsJobInfo {
@@ -40,7 +62,7 @@ export interface IElectronAPI {
   selectFiles: () => Promise<FileItem[]>;
   readFolder: (folderPath: string) => Promise<FileItem[]>;
   getPrinters: () => Promise<PrinterInfo[]>;
-  getPrinterOptions: (printerName: string) => Promise<{ raw: string }>;
+  getPrinterOptions: (printerName: string) => Promise<PrinterCapabilities & { raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }>;
   cancelPrintJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;

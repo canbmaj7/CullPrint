@@ -1511,3 +1511,63 @@ kbd {
   border-color: var(--error-red);
 }
 
+/* ==========================================================================
+   Yazıcı Ayarları Modalı (Settings Modal)
+   ========================================================================== */
+.sidebar-settings-link {
+  background: transparent;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.sidebar-settings-link:hover {
+  text-decoration: underline;
+  color: var(--accent-blue-hover);
+}
+
+.settings-modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.settings-panel {
+  position: relative;
+  width: 480px;
+  max-width: 90vw;
+  height: 100%;
+  background-color: var(--bg-panel);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 35px rgba(0, 0, 0, 0.45);
+  animation: slideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1001;
+}
+
+.settings-choice-btn:hover {
+  border-color: var(--accent-blue) !important;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.settings-save-btn:hover {
+  filter: brightness(1.1);
+}
+
+

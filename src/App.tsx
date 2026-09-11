@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UploadCloud } from 'lucide-react';
-import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob } from './types';
+import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings } from './types';
 import { generatePrintRaster } from './utils/rasterizer';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
 import { PrinterSidebar } from './components/PrinterSidebar';
 import { QueueDrawer } from './components/QueueDrawer';
+import { SettingsModal } from './components/SettingsModal';
 import { FileItem } from './vite-env';
 
 export const App: React.FC = () => {
@@ -66,10 +67,82 @@ export const App: React.FC = () => {
   // Yazıcı Ayarları
   const [printers, setPrinters] = useState<PrinterState[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
-  const [finish, setFinish] = useState<'Glossy' | 'Matte'>('Glossy');
+  const [finish, setFinish] = useState<string>('Glossy');
   const [copies, setCopies] = useState<number>(1);
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [lastPrintStatus, setLastPrintStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const [printerCapabilities, setPrinterCapabilities] = useState<PrinterCapabilities | null>(null);
+  const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [printerSettings, setPrinterSettings] = useState<PrinterSettings>({
+    mediaSize: 'w432h576',
+    finishOptionName: 'StpLaminate',
+    finishValue: 'Glossy',
+  });
+
+  // Seçili yazıcıya göre kayıtlı ayarları yükle
+  useEffect(() => {
+    if (!selectedPrinter) return;
+    const storageKey = `cullprint_printer_settings_${selectedPrinter.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const parsed: PrinterSettings = JSON.parse(saved);
+        setPrinterSettings(parsed);
+        if (parsed.finishValue) {
+          setFinish(parsed.finishValue);
+        }
+      } catch {
+        setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
+      }
+    } else {
+      setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
+    }
+  }, [selectedPrinter]);
+
+  // Ayarlar modalı açıldığında yazıcı yeteneklerini sorgula
+  useEffect(() => {
+    if (!isSettingsOpen || !selectedPrinter || !window.electronAPI) return;
+
+    if (!printerCapabilities || printerCapabilities.printerName !== selectedPrinter) {
+      let isMounted = true;
+      setIsLoadingCapabilities(true);
+      window.electronAPI
+        .getPrinterOptions(selectedPrinter)
+        .then((caps) => {
+          if (isMounted) {
+            setPrinterCapabilities(caps);
+          }
+        })
+        .catch((err) => {
+          console.error('Yazıcı yetenekleri alınamadı:', err);
+        })
+        .finally(() => {
+          if (isMounted) {
+            setIsLoadingCapabilities(false);
+          }
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [isSettingsOpen, selectedPrinter, printerCapabilities]);
+
+  const handleSaveSettings = useCallback(
+    (settings: PrinterSettings) => {
+      setPrinterSettings(settings);
+      if (settings.finishValue) {
+        setFinish(settings.finishValue);
+      }
+      if (selectedPrinter) {
+        const storageKey = `cullprint_printer_settings_${selectedPrinter.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        localStorage.setItem(storageKey, JSON.stringify(settings));
+      }
+    },
+    [selectedPrinter]
+  );
 
   // CUPS Kuyruğunu Canlı İzle ve Tamamlanan İşleri Güncelle
   useEffect(() => {
@@ -321,15 +394,18 @@ export const App: React.FC = () => {
         ? !currentPhoto.isLandscape
         : (currentPhoto.isLandscape ?? true);
 
-      // 1. Tam 1800x2400 piksel 300 DPI raster üret
+      // 1. Tam çözünürlüklü raster üret
       // NEVER use media-thumb:// here — print raster must be generated from the full original file
       const mediaUrl = `media://${encodeURI(currentPhoto.path)}`;
+      const effectiveFinish = printerSettings.finishValue || finish;
       const base64Raster = await generatePrintRaster({
         imageUrl: mediaUrl,
         isLandscape: effectiveIsLandscape,
         cropOffsetX: currentPhoto.cropOffsetX || 0,
         cropOffsetY: currentPhoto.cropOffsetY || 0,
         userRotation: currentPhoto.userRotation || 0,
+        mediaSizeToken: printerSettings.mediaSize,
+        dpi: 300,
       });
 
       // Kuyruğa 'printing' olarak ekle
@@ -338,8 +414,8 @@ export const App: React.FC = () => {
         photoName: currentPhoto.name,
         photoPath: currentPhoto.path,
         copies,
-        finish,
-        mediaSize: 'w432h576',
+        finish: effectiveFinish,
+        mediaSize: printerSettings.mediaSize,
         timestamp: Date.now(),
         status: 'printing',
         cropOffsetX: currentPhoto.cropOffsetX || 0,
@@ -356,8 +432,10 @@ export const App: React.FC = () => {
         filePath: spoolPath,
         printerName: selectedPrinter,
         copies,
-        mediaSize: 'w432h576', // 6x8 inç
-        finish,
+        mediaSize: printerSettings.mediaSize,
+        finish: effectiveFinish,
+        mediaOptionName: printerCapabilities?.mediaOptionName || undefined,
+        finishOptionName: printerCapabilities?.finishOptionName || undefined,
       });
 
       if (printResult.success) {
@@ -385,7 +463,7 @@ export const App: React.FC = () => {
 
         setLastPrintStatus({
           success: true,
-          message: `${currentPhoto.name} (${copies}x ${finish}) kuyruğa gönderildi.`,
+          message: `${currentPhoto.name} (${copies}x ${effectiveFinish}) kuyruğa gönderildi.`,
         });
       } else {
         nextTargetPathRef.current = null;
@@ -418,7 +496,17 @@ export const App: React.FC = () => {
     } finally {
       setIsPrinting(false);
     }
-  }, [currentPhoto, isPrinting, selectedPrinter, copies, finish, selectedIndex, filteredPhotos]);
+  }, [
+    currentPhoto,
+    isPrinting,
+    selectedPrinter,
+    copies,
+    finish,
+    printerSettings,
+    printerCapabilities,
+    selectedIndex,
+    filteredPhotos,
+  ]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
   const handleReprintJob = useCallback(
@@ -438,12 +526,17 @@ export const App: React.FC = () => {
 
         // NEVER use media-thumb:// here — print raster must be generated from the full original file
         const mediaUrl = `media://${encodeURI(job.photoPath)}`;
+        const effectiveMediaSize = job.mediaSize || printerSettings.mediaSize;
+        const effectiveFinish = job.finish || printerSettings.finishValue || finish;
+
         const base64Raster = await generatePrintRaster({
           imageUrl: mediaUrl,
           isLandscape: effectiveIsLandscape,
           cropOffsetX: job.cropOffsetX,
           cropOffsetY: job.cropOffsetY,
           userRotation: job.userRotation,
+          mediaSizeToken: effectiveMediaSize,
+          dpi: 300,
         });
 
         const newJob: PrintJob = {
@@ -461,8 +554,10 @@ export const App: React.FC = () => {
           filePath: spoolPath,
           printerName: selectedPrinter,
           copies: job.copies,
-          mediaSize: job.mediaSize || 'w432h576',
-          finish: job.finish,
+          mediaSize: effectiveMediaSize,
+          finish: effectiveFinish,
+          mediaOptionName: printerCapabilities?.mediaOptionName || undefined,
+          finishOptionName: printerCapabilities?.finishOptionName || undefined,
         });
 
         if (printResult.success) {
@@ -487,7 +582,7 @@ export const App: React.FC = () => {
           );
           setLastPrintStatus({
             success: true,
-            message: `${job.photoName} (${job.copies}x ${job.finish}) tekrar basıldı.`,
+            message: `${job.photoName} (${job.copies}x ${effectiveFinish}) tekrar basıldı.`,
           });
         } else {
           setQueue((prev) =>
@@ -508,7 +603,7 @@ export const App: React.FC = () => {
         setIsPrinting(false);
       }
     },
-    [isPrinting, photos, selectedPrinter]
+    [isPrinting, photos, selectedPrinter, printerSettings, printerCapabilities, finish]
   );
 
   // 4.6. Kuyruktaki İşi İptal Et
@@ -552,7 +647,7 @@ export const App: React.FC = () => {
         return;
       }
 
-      if (isQueueOpen && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q') {
+      if ((isQueueOpen || isSettingsOpen) && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q') {
         return;
       }
 
@@ -602,9 +697,15 @@ export const App: React.FC = () => {
           break;
 
         case 'Escape':
+          if (isSettingsOpen) {
+            e.preventDefault();
+            setIsSettingsOpen(false);
+            break;
+          }
           if (isQueueOpen) {
             e.preventDefault();
             setIsQueueOpen(false);
+            break;
           }
           break;
 
@@ -634,6 +735,7 @@ export const App: React.FC = () => {
     handleResetCrop,
     filteredPhotos.length,
     isQueueOpen,
+    isSettingsOpen,
   ]);
 
   // İstatistikler
@@ -671,6 +773,8 @@ export const App: React.FC = () => {
         theme={theme}
         queueCount={queue.length}
         activeJobCount={activeJobCount}
+        activePrinterName={selectedPrinter || null}
+        activePrinterIsDNP={Boolean(printers.find((p) => p.name === selectedPrinter)?.isDNP)}
         onSelectFolder={handleSelectFolder}
         onSelectFiles={handleSelectFiles}
         onToggleTheme={toggleTheme}
@@ -679,6 +783,7 @@ export const App: React.FC = () => {
           setSelectedIndex(0);
         }}
         onToggleQueue={() => setIsQueueOpen((prev) => !prev)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Ana Gövde (Orta Kadraj + Sağ Yazıcı Paneli) */}
@@ -696,14 +801,20 @@ export const App: React.FC = () => {
           printers={printers}
           selectedPrinter={selectedPrinter}
           onSelectPrinter={setSelectedPrinter}
-          finish={finish}
-          onChangeFinish={setFinish}
+          finish={printerSettings.finishValue || finish}
+          onChangeFinish={(val) => {
+            setFinish(val);
+            setPrinterSettings((prev) => ({ ...prev, finishValue: val }));
+          }}
           copies={copies}
           onChangeCopies={setCopies}
           isPrinting={isPrinting}
           onPrint={handlePrintAndNext}
           hasPhoto={Boolean(currentPhoto)}
           lastPrintStatus={lastPrintStatus}
+          currentSettings={printerSettings}
+          capabilities={printerCapabilities}
+          onOpenSettings={() => setIsSettingsOpen(true)}
         />
       </div>
 
@@ -727,6 +838,17 @@ export const App: React.FC = () => {
         rollPrintsCount={rollPrintsCount}
         onResetRoll={handleResetRoll}
         rollCapacity={200}
+      />
+
+      {/* Yazıcı Ayarları Modalı */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        printerName={selectedPrinter}
+        capabilities={printerCapabilities}
+        isLoadingCapabilities={isLoadingCapabilities}
+        currentSettings={printerSettings}
+        onSave={handleSaveSettings}
       />
     </div>
   );

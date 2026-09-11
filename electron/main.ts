@@ -402,14 +402,102 @@ ipcMain.handle('get-printers', async () => {
   }
 });
 
+interface PrinterOptionChoice {
+  value: string;
+  label: string;
+  isDefault: boolean;
+}
+
+interface PrinterOption {
+  name: string;
+  label: string;
+  choices: PrinterOptionChoice[];
+}
+
+const STATIC_NAMED_SIZES: Record<string, [number, number]> = {
+  letter: [8.5, 11],
+  a4: [8.27, 11.69],
+  legal: [8.5, 14],
+  '4x6': [4, 6],
+  '5x7': [5, 7],
+  '8x10': [8, 10],
+};
+
+function formatDim(num: number): string {
+  return num.toFixed(1).replace(/\.0$/, '');
+}
+
+function getChoiceLabel(value: string): string {
+  const match = value.match(/^w(\d+)h(\d+)$/i);
+  if (match) {
+    const widthIn = formatDim(Number(match[1]) / 72);
+    const heightIn = formatDim(Number(match[2]) / 72);
+    return `${widthIn}×${heightIn}"`;
+  }
+  const named = STATIC_NAMED_SIZES[value.toLowerCase()];
+  if (named) {
+    const widthIn = formatDim(named[0]);
+    const heightIn = formatDim(named[1]);
+    return `${widthIn}×${heightIn}"`;
+  }
+  return value;
+}
+
+function parseLpOptions(raw: string): PrinterOption[] {
+  const options: PrinterOption[] = [];
+  const lines = raw.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || !trimmed.includes(':')) continue;
+
+    const colonIdx = trimmed.indexOf(':');
+    const left = trimmed.slice(0, colonIdx).trim();
+    const rightTokens = trimmed.slice(colonIdx + 1).trim().split(/\s+/).filter(Boolean);
+
+    const name = left.includes('/') ? left.split('/')[0].trim() : left;
+    const label = left.includes('/') ? left.split('/')[1].trim() : left;
+
+    const choices: PrinterOptionChoice[] = rightTokens.map((token) => {
+      const isDefault = token.startsWith('*');
+      const value = isDefault ? token.slice(1) : token;
+      return {
+        value,
+        label: getChoiceLabel(value),
+        isDefault,
+      };
+    });
+
+    options.push({ name, label, choices });
+  }
+
+  return options;
+}
+
 // 4. Get Printer Options (Media size, laminate finish, etc.)
 ipcMain.handle('get-printer-options', async (_event, printerName: string) => {
   try {
     const { stdout } = await execAsync(`lpoptions -p "${printerName}" -l`);
-    return { raw: stdout };
+    const options = parseLpOptions(stdout);
+    const mediaOption = options.find((opt) => /^(PageSize|media)$/i.test(opt.name));
+    const finishOption = options.find((opt) => /laminate|finish|quality|glosslevel/i.test(opt.name));
+
+    return {
+      raw: stdout,
+      printerName,
+      options,
+      mediaOptionName: mediaOption ? mediaOption.name : null,
+      finishOptionName: finishOption ? finishOption.name : null,
+    };
   } catch (err) {
     console.warn('lpoptions sorgulanamadı:', err);
-    return { raw: '' };
+    return {
+      raw: '',
+      printerName,
+      options: [],
+      mediaOptionName: null,
+      finishOptionName: null,
+    };
   }
 });
 
@@ -450,12 +538,16 @@ ipcMain.handle(
       copies = 1,
       mediaSize = 'w432h576',
       finish = 'Glossy',
+      mediaOptionName,
+      finishOptionName,
     }: {
       filePath: string;
       printerName: string;
       copies: number;
       mediaSize: string;
       finish: string;
+      mediaOptionName?: string;
+      finishOptionName?: string;
     }
   ) => {
     try {
@@ -463,16 +555,12 @@ ipcMain.handle(
         return { success: false, output: '', error: 'Baskı dosyası bulunamadı.' };
       }
 
-      // Build lp command args for DNP DS620
-      // -d <printer>
-      // -n <copies>
-      // -o media=w432h576 (6x8 inç)
-      // -o StpLaminate=Glossy or Matte
+      // Build lp command args
       const args = ['-d', printerName, '-n', String(copies)];
-      const mediaOption = mediaSize ? `media=${mediaSize}` : 'media=w432h576';
-      args.push('-o', mediaOption);
+      const mediaOption = mediaSize || 'w432h576';
+      args.push('-o', `${mediaOptionName || 'media'}=${mediaOption}`);
       if (finish) {
-        args.push('-o', `StpLaminate=${finish}`);
+        args.push('-o', `${finishOptionName || 'StpLaminate'}=${finish}`);
       }
       args.push(filePath);
 

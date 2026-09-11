@@ -1,19 +1,22 @@
 import React from 'react';
 import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
-import { PrinterState } from '../types';
+import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
 
 interface PrinterSidebarProps {
   printers: PrinterState[];
   selectedPrinter: string;
   onSelectPrinter: (name: string) => void;
-  finish: 'Glossy' | 'Matte';
-  onChangeFinish: (finish: 'Glossy' | 'Matte') => void;
+  finish: string;
+  onChangeFinish: (finish: string) => void;
   copies: number;
   onChangeCopies: (copies: number) => void;
   isPrinting: boolean;
   onPrint: () => void;
   hasPhoto: boolean;
   lastPrintStatus: { success: boolean; message: string } | null;
+  currentSettings: PrinterSettings;
+  capabilities: PrinterCapabilities | null;
+  onOpenSettings: () => void;
 }
 
 export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
@@ -28,8 +31,47 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   onPrint,
   hasPhoto,
   lastPrintStatus,
+  currentSettings,
+  capabilities,
+  onOpenSettings,
 }) => {
   const activePrinter = printers.find((p) => p.name === selectedPrinter);
+
+  const mediaOption = capabilities?.options.find((o) => o.name === capabilities.mediaOptionName);
+  const mediaChoice = mediaOption?.choices.find((c) => c.value === currentSettings.mediaSize);
+  const mediaLabel =
+    mediaChoice?.label ||
+    (currentSettings.mediaSize === 'w432h576' ? '6x8 (15x20 cm)' : currentSettings.mediaSize);
+
+  const finishOption = capabilities?.finishOptionName
+    ? capabilities.options.find((o) => o.name === capabilities.finishOptionName)
+    : null;
+
+  const twoFinishChoices =
+    capabilities === null
+      ? [
+          { value: 'Glossy', label: 'Parlak' },
+          { value: 'Matte', label: 'Mat' },
+        ]
+      : finishOption && finishOption.choices.length === 2
+      ? finishOption.choices.map((c) => ({
+          value: c.value,
+          label: c.label === 'Glossy' ? 'Parlak' : c.label === 'Matte' ? 'Mat' : c.label,
+        }))
+      : null;
+
+  const finishChoice = finishOption?.choices.find((c) => c.value === finish);
+  const finishLabel = finishChoice
+    ? finishChoice.label === 'Glossy'
+      ? 'Parlak'
+      : finishChoice.label === 'Matte'
+      ? 'Mat'
+      : finishChoice.label
+    : finish === 'Glossy'
+    ? 'Parlak'
+    : finish === 'Matte'
+    ? 'Mat'
+    : finish;
 
   return (
     <aside className="printer-sidebar">
@@ -100,30 +142,51 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
             <Sparkles size={15} />
             <span className="card-title">Baskı Özellikleri</span>
           </div>
+          <button
+            type="button"
+            className="sidebar-settings-link"
+            onClick={onOpenSettings}
+            title="Yazıcı Ayarlarını Yapılandır"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--accent-blue)',
+              fontSize: '11.5px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              padding: '2px 4px',
+            }}
+          >
+            Değiştir
+          </button>
         </div>
 
         <div className="setting-row">
           <span className="setting-label">Kağıt Formatı</span>
-          <span className="setting-badge-pill">6x8 (15x20 cm)</span>
+          <span className="setting-badge-pill">{mediaLabel}</span>
         </div>
 
-        <div className="setting-row">
-          <span className="setting-label">Baskı Yüzeyi</span>
-          <div className="finish-toggle-group">
-            <button
-              className={`finish-btn ${finish === 'Glossy' ? 'active' : ''}`}
-              onClick={() => onChangeFinish('Glossy')}
-            >
-              Parlak
-            </button>
-            <button
-              className={`finish-btn ${finish === 'Matte' ? 'active' : ''}`}
-              onClick={() => onChangeFinish('Matte')}
-            >
-              Mat
-            </button>
+        {twoFinishChoices ? (
+          <div className="setting-row">
+            <span className="setting-label">Baskı Yüzeyi</span>
+            <div className="finish-toggle-group">
+              {twoFinishChoices.map((choice) => (
+                <button
+                  key={choice.value}
+                  className={`finish-btn ${finish === choice.value ? 'active' : ''}`}
+                  onClick={() => onChangeFinish(choice.value)}
+                >
+                  {choice.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="setting-row">
+            <span className="setting-label">Baskı Yüzeyi</span>
+            <span className="setting-badge-pill">{finishLabel || 'Varsayılan'}</span>
+          </div>
+        )}
 
         {/* Kopya Sayısı */}
         <div className="setting-row copies-row">

@@ -6,12 +6,48 @@
  * - Yatay: 2400 x 1800 piksel (4:3 oran)
  */
 
+const STATIC_NAMED_SIZES: Record<string, [number, number]> = {
+  letter: [8.5, 11],
+  a4: [8.27, 11.69],
+  legal: [8.5, 14],
+  '4x6': [4, 6],
+  '5x7': [5, 7],
+  '8x10': [8, 10],
+};
+
+export function resolveMediaPixelSize(
+  mediaSizeToken: string,
+  _dpi: number = 300
+): { widthIn: number; heightIn: number } {
+  if (mediaSizeToken) {
+    const match = mediaSizeToken.match(/^w(\d+)h(\d+)$/i);
+    if (match) {
+      return {
+        widthIn: Number(match[1]) / 72,
+        heightIn: Number(match[2]) / 72,
+      };
+    }
+    const named = STATIC_NAMED_SIZES[mediaSizeToken.toLowerCase()];
+    if (named) {
+      return {
+        widthIn: named[0],
+        heightIn: named[1],
+      };
+    }
+  }
+
+  console.warn('Bilinmeyen medya boyutu, 6x8 varsayılana dönülüyor:', mediaSizeToken);
+  return { widthIn: 6, heightIn: 8 };
+}
+
 interface RenderParams {
   imageUrl: string;
   isLandscape: boolean;
   cropOffsetX: number; // -100 ile 100 arası yüzde
   cropOffsetY: number; // -100 ile 100 arası yüzde
   userRotation: number; // 0, 90, 180, 270
+  mediaSizeToken: string;
+  dpi?: number;
 }
 
 export async function generatePrintRaster({
@@ -20,17 +56,21 @@ export async function generatePrintRaster({
   cropOffsetX,
   cropOffsetY,
   userRotation,
+  mediaSizeToken,
+  dpi = 300,
 }: RenderParams): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
 
     img.onload = () => {
       try {
-        // DNP DS620 6x8 Kağıt Boyutu:
-        // Yatay kağıt: 2400w x 1800h (4:3)
-        // Dikey kağıt: 1800w x 2400h (3:4)
-        const targetWidth = isLandscape ? 2400 : 1800;
-        const targetHeight = isLandscape ? 1800 : 2400;
+        const { widthIn, heightIn } = resolveMediaPixelSize(mediaSizeToken, dpi ?? 300);
+        const targetWidth = isLandscape
+          ? Math.round(heightIn * (dpi ?? 300))
+          : Math.round(widthIn * (dpi ?? 300));
+        const targetHeight = isLandscape
+          ? Math.round(widthIn * (dpi ?? 300))
+          : Math.round(heightIn * (dpi ?? 300));
 
         const canvas = document.createElement('canvas');
         canvas.width = targetWidth;

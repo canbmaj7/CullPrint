@@ -10,6 +10,7 @@ import {
   Moon,
   Eye,
   ListOrdered,
+  Settings,
 } from 'lucide-react';
 import { FilterMode, ThemeMode } from '../types';
 
@@ -22,11 +23,14 @@ interface HeaderProps {
   theme: ThemeMode;
   queueCount: number;
   activeJobCount: number;
+  activePrinterName: string | null;
+  activePrinterIsDNP: boolean;
   onSelectFolder: () => void;
   onSelectFiles: () => void;
   onToggleTheme: () => void;
   onFilterChange: (mode: FilterMode) => void;
   onToggleQueue: () => void;
+  onOpenSettings: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,11 +42,14 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   queueCount,
   activeJobCount,
+  activePrinterName,
+  activePrinterIsDNP,
   onSelectFolder,
   onSelectFiles,
   onToggleTheme,
   onFilterChange,
   onToggleQueue,
+  onOpenSettings,
 }) => {
   return (
     <header className="header-container">
@@ -53,7 +60,9 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div className="brand-text">
           <span className="brand-title">CullPrint</span>
-          <span className="brand-subtitle">DS620 Pro</span>
+          <span className="brand-subtitle">
+            {activePrinterIsDNP ? 'DS620 Pro' : (activePrinterName || 'Yazıcı Yok')}
+          </span>
         </div>
       </div>
 
@@ -129,6 +138,15 @@ export const Header: React.FC<HeaderProps> = ({
           {theme === 'dark' && <Moon size={15} />}
           {theme === 'light' && <Sun size={15} />}
           {theme === 'neutral' && <Eye size={15} />}
+        </button>
+
+        {/* Yazıcı Ayarları Butonu */}
+        <button
+          className="theme-switch-btn settings-trigger-btn"
+          onClick={onOpenSettings}
+          title="Yazıcı Ayarları"
+        >
+          <Settings size={15} />
         </button>
       </div>
     </header>

@@ -32,7 +32,7 @@ export interface PrintJob {
   photoName: string;
   photoPath: string;
   copies: number;
-  finish: 'Glossy' | 'Matte';
+  finish: string;
   mediaSize: string;
   timestamp: number;
   status: 'queued' | 'printing' | 'completed' | 'failed' | 'cancelled';
@@ -40,6 +40,31 @@ export interface PrintJob {
   cropOffsetX: number;
   cropOffsetY: number;
   userRotation: number;
+}
+
+export interface PrinterOptionChoice {
+  value: string;
+  label: string;
+  isDefault: boolean;
+}
+
+export interface PrinterOption {
+  name: string;
+  label: string;
+  choices: PrinterOptionChoice[];
+}
+
+export interface PrinterCapabilities {
+  printerName: string;
+  options: PrinterOption[];
+  mediaOptionName: string | null;
+  finishOptionName: string | null;
+}
+
+export interface PrinterSettings {
+  mediaSize: string;
+  finishOptionName?: string;
+  finishValue?: string;
 }
 
 export interface CupsJob {

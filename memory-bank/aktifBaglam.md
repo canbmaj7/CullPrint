@@ -48,6 +48,11 @@
     - Yüksek çözünürlüklü (20-45MB) ham JPEG dosyalarının filmstrip ve ana sahne geçişlerinde oluşturduğu gecikme (lag) çözüldü.
     - Electron dahili `nativeImage.createThumbnailFromPath` API'si ve disk önbelleği (`os.tmpdir()/cullprint-thumbs`) kullanılarak bağımlılıksız `media-thumb://` şeması eklendi.
     - `Filmstrip` 240px küçük resimler, `CropViewer` 1600px proxy önizleme için bu şemayı kullanırken, `App.tsx` içindeki baskı raster motoru (`generatePrintRaster`) orijinal tam çözünürlüklü `media://` şemasını korudu.
+14. **Genel CUPS Yazıcı Yetenekleri & Ayarlar Modalı (SettingsModal):**
+    - Hardcoded DNP DS620 bağımlılığı genelleştirildi; `lpoptions -p <printer> -l` çıktısı `parseLpOptions` ile yapısal `PrinterOption` ve `PrinterCapabilities` nesnelerine dönüştürüldü.
+    - Medya boyutları dinamik çözümlenerek (`resolveMediaPixelSize`) rasterizer motoru hedef piksel boyutlarını seçilen medya boyutuna ve DPI'a göre otomatik hesaplayacak şekilde uyarlandı.
+    - Yeni `SettingsModal` bileşeni ile kağıt boyutları, yüzey/kalite ve diğer CUPS seçenekleri yapılandırılabilir hale getirildi.
+    - Ayarlar yazıcı bazında `localStorage` içine kaydedilirken, geriye dönük tam uyumluluk (DNP DS620 için 6x8 ve Parlak/Mat varsayılanları) korundu.
 
 ## Sonraki Adımlar
 - Kullanıcının sahada / bilgisayarında uygulamayı test etmesi (`npm run dev` veya doğrudan AppImage ile).
