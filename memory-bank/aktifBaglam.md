@@ -53,6 +53,11 @@
     - Medya boyutları dinamik çözümlenerek (`resolveMediaPixelSize`) rasterizer motoru hedef piksel boyutlarını seçilen medya boyutuna ve DPI'a göre otomatik hesaplayacak şekilde uyarlandı.
     - Yeni `SettingsModal` bileşeni ile kağıt boyutları, yüzey/kalite ve diğer CUPS seçenekleri yapılandırılabilir hale getirildi.
     - Ayarlar yazıcı bazında `localStorage` içine kaydedilirken, geriye dönük tam uyumluluk (DNP DS620 için 6x8 ve Parlak/Mat varsayılanları) korundu.
+15. **Tasarım Sistemi & Görsel Yenileme (Design Tokens & Visual Re-skin):**
+    - **Indigo Vurgu Skalası:** Koyu, Açık ve Nötr temalardaki `--accent-blue` ve `--border-focus` renkleri indigo tonlarına retune edildi; semantik durum renkleri korundu.
+    - **Boşluk (Spacing), Yarıçap (Radius) ve Tipografi Skalası:** `--space-1` .. `--space-8`, `--radius-xl`, `--radius-full`, `--text-xs` .. `--text-xl` ile `--weight-normal/medium/semibold` tokenları tanımlandı ve ana yüzeylere uygulandı.
+    - **Hareket (Motion) & Animasyonlar:** Buton basma geri bildirimi (`:active { transform: scale(0.97) }`), CropViewer fotoğraf geçiş kararması (`imgLoaded` + `.stage-photo.is-loading`), kuyruk çekmecesi yumuşak kayışı (`--duration-slow` + `--ease-standard`) ve baskı durumu bildirim animasyonu (`bannerEnter`) entegre edildi.
+    - **SettingsModal Temizliği:** `SettingsModal.tsx` içindeki ~40 satır içi `style={{...}}` bloğu tamamen kaldırılarak `src/index.css` içindeki tokenlaştırılmış sınıflarla değiştirildi.
 
 ## Sonraki Adımlar
 - Kullanıcının sahada / bilgisayarında uygulamayı test etmesi (`npm run dev` veya doğrudan AppImage ile).

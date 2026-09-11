@@ -86,36 +86,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* İçerik */}
-        <div className="settings-content" style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
+        <div className="settings-content">
           {isLoadingCapabilities ? (
-            <div
-              className="settings-loading"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '48px 0',
-                gap: '12px',
-                color: 'var(--text-secondary)',
-              }}
-            >
+            <div className="settings-loading">
               <Loader2 size={24} className="animate-spin" />
               <span>Yazıcı yetenekleri sorgulanıyor...</span>
             </div>
           ) : !capabilities || capabilities.options.length === 0 ? (
-            <div
-              className="settings-empty"
-              style={{
-                textAlign: 'center',
-                padding: '36px 0',
-                color: 'var(--text-secondary)',
-                fontSize: '13px',
-              }}
-            >
+            <div className="settings-empty">
               <p>Yazıcı seçenekleri bulunamadı veya CUPS yanıt vermedi.</p>
-              <div style={{ marginTop: '16px', textAlign: 'left' }}>
-                <label style={{ display: 'block', fontSize: '12px', marginBottom: '6px', color: 'var(--text-secondary)' }}>
+              <div className="settings-fallback-field">
+                <label className="settings-fallback-label">
                   Medya Boyutu Kodu
                 </label>
                 <input
@@ -123,22 +104,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="settings-input"
                   value={localSettings.mediaSize}
                   onChange={(e) => setLocalSettings((prev) => ({ ...prev, mediaSize: e.target.value }))}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--bg-card)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '13px',
-                    boxSizing: 'border-box',
-                  }}
                 />
               </div>
             </div>
           ) : (
-            <div className="settings-options-list" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="settings-options-list">
               {capabilities.options.map((option) => {
                 const isMediaOption = option.name === capabilities.mediaOptionName;
                 const isFinishOption = option.name === capabilities.finishOptionName;
@@ -148,35 +118,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div
                       key={option.name}
                       className="settings-option-card"
-                      style={{
-                        background: 'var(--bg-card)',
-                        padding: '14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '10px',
-                        }}
-                      >
-                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                      <div className="settings-option-header">
+                        <span className="settings-option-title">
                           {option.label}{' '}
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({option.name})</span>
+                          <span className="settings-option-code">({option.name})</span>
                         </span>
                         <span className="setting-badge-pill">Medya Boyutu</span>
                       </div>
-                      <div
-                        className="settings-choice-grid"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                          gap: '8px',
-                        }}
-                      >
+                      <div className="settings-choice-grid">
                         {option.choices.map((choice) => {
                           const isSelected = localSettings.mediaSize === choice.value;
                           return (
@@ -185,30 +135,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               type="button"
                               className={`settings-choice-btn ${isSelected ? 'active' : ''}`}
                               onClick={() => setLocalSettings((prev) => ({ ...prev, mediaSize: choice.value }))}
-                              style={{
-                                padding: '8px 10px',
-                                borderRadius: 'var(--radius-sm)',
-                                border: isSelected ? '1px solid var(--accent-blue)' : '1px solid var(--border-subtle)',
-                                background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-panel)',
-                                color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '2px',
-                                transition: 'all 0.15s ease',
-                              }}
                             >
-                              <span style={{ fontWeight: 600, fontSize: '13px' }}>{choice.label}</span>
-                              <span
-                                style={{
-                                  fontSize: '10px',
-                                  fontFamily: 'var(--font-mono)',
-                                  color: isSelected ? 'var(--accent-blue)' : 'var(--text-muted)',
-                                }}
-                              >
-                                {choice.value}
-                              </span>
+                              <span className="settings-choice-label">{choice.label}</span>
+                              <span className="settings-choice-value">{choice.value}</span>
                             </button>
                           );
                         })}
@@ -226,34 +155,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div
                       key={option.name}
                       className="settings-option-card"
-                      style={{
-                        background: 'var(--bg-card)',
-                        padding: '14px',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-subtle)',
-                      }}
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '10px',
-                        }}
-                      >
-                        <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)' }}>
+                      <div className="settings-option-header">
+                        <span className="settings-option-title">
                           {option.label}{' '}
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>({option.name})</span>
+                          <span className="settings-option-code">({option.name})</span>
                         </span>
                         <span className="setting-badge-pill">Yüzey / Kalite</span>
                       </div>
                       {option.choices.length <= 2 ? (
-                        <div className="finish-toggle-group" style={{ display: 'flex', gap: '4px' }}>
+                        <div className="finish-toggle-group settings-finish-group">
                           {option.choices.map((choice) => (
                             <button
                               key={choice.value}
                               type="button"
-                              className={`finish-btn ${currentVal === choice.value ? 'active' : ''}`}
+                              className={`finish-btn settings-finish-btn ${currentVal === choice.value ? 'active' : ''}`}
                               onClick={() =>
                                 setLocalSettings((prev) => ({
                                   ...prev,
@@ -261,7 +177,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                   finishValue: choice.value,
                                 }))
                               }
-                              style={{ flex: 1, padding: '8px' }}
                             >
                               {choice.label}
                             </button>
@@ -269,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       ) : (
                         <select
-                          className="printer-dropdown"
+                          className="printer-dropdown settings-select"
                           value={currentVal}
                           onChange={(e) =>
                             setLocalSettings((prev) => ({
@@ -278,7 +193,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               finishValue: e.target.value,
                             }))
                           }
-                          style={{ width: '100%', padding: '8px 10px' }}
                         >
                           {option.choices.map((choice) => (
                             <option key={choice.value} value={choice.value}>
@@ -297,26 +211,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div
                     key={option.name}
                     className="settings-option-generic"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 0',
-                      borderBottom: '1px solid var(--border-subtle)',
-                    }}
                   >
                     <div>
-                      <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                      <span className="settings-generic-label">
                         {option.label}
                       </span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                      <span className="settings-generic-name">
                         ({option.name})
                       </span>
                     </div>
                     <select
-                      className="printer-dropdown"
+                      className="printer-dropdown settings-generic-select"
                       defaultValue={defaultChoice?.value}
-                      style={{ maxWidth: '180px', padding: '4px 8px', fontSize: '12px' }}
                     >
                       {option.choices.map((c) => (
                         <option key={c.value} value={c.value}>
@@ -332,23 +238,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Alt Footer - Varsayılanlara Dön ve Kaydet */}
-        <div
-          className="settings-footer queue-footer"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            padding: '16px 20px',
-            borderTop: '1px solid var(--border-subtle)',
-            backgroundColor: 'var(--bg-card)',
-          }}
-        >
+        <div className="settings-footer queue-footer">
           <button
             type="button"
             className="clear-history-btn"
             onClick={handleResetDefaults}
             disabled={!capabilities || isLoadingCapabilities}
             title="CUPS tarafından bildirilen varsayılan değerlere dön"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <RotateCw size={13} />
             <span>Varsayılanlara Dön</span>
@@ -357,19 +253,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             className="settings-save-btn"
             onClick={handleSave}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 16px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--accent-blue)',
-              color: '#fff',
-              border: 'none',
-              fontWeight: 600,
-              fontSize: '12.5px',
-              cursor: 'pointer',
-            }}
           >
             <Check size={14} />
             <span>Kaydet</span>
