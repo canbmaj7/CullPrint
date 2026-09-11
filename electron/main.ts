@@ -102,6 +102,13 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // F12 veya Ctrl+Shift+I ile konsolu açabilme
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow?.webContents.toggleDevTools();
+    }
+  });
+
   // Remove default menu for maximum workspace & clean look
   mainWindow.setMenuBarVisibility(false);
 }

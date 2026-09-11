@@ -19,6 +19,12 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  useEffect(() => {
+    const handleGlobalMouseUp = () => setIsDragging(false);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
   if (!photo) {
     return (
       <div className="viewer-empty-state">
@@ -54,13 +60,11 @@ export const CropViewer: React.FC<CropViewerProps> = ({
     const deltaY = e.clientY - dragStart.y;
 
     if (effectiveIsLandscape) {
-      // Yatay fotoğrafta yatay kaydırma (sağ/sol)
       if (Math.abs(deltaX) > 2) {
         onAdjustCrop(deltaX > 0 ? 3 : -3, 0);
         setDragStart({ x: e.clientX, y: e.clientY });
       }
     } else {
-      // Dikey fotoğrafta dikey kaydırma (kafa/ayak kurtarma)
       if (Math.abs(deltaY) > 2) {
         onAdjustCrop(0, deltaY > 0 ? 3 : -3);
         setDragStart({ x: e.clientX, y: e.clientY });
@@ -69,12 +73,6 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   };
 
   const handleMouseUp = () => setIsDragging(false);
-
-  useEffect(() => {
-    const handleGlobalMouseUp = () => setIsDragging(false);
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
 
   return (
     <div
