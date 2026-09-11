@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
+import crypto from 'node:crypto';
 import { exec, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import exifr from 'exifr';
@@ -70,6 +71,16 @@ async function parseImageInfo(filePath: string) {
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+      corsEnabled: true,
+    },
+  },
+  {
+    scheme: 'media-thumb',
     privileges: {
       standard: true,
       secure: true,
@@ -154,6 +165,78 @@ app.whenReady().then(() => {
     } catch (err) {
       console.error('CullPrint Media Protocol Hatası:', err);
       return new Response('Media load error', { status: 500 });
+    }
+  });
+
+  // Register 'media-thumb://' protocol handler for cached thumbnail generation
+  protocol.handle('media-thumb', async (request) => {
+    try {
+      const url = new URL(request.url);
+      const rawPath = url.searchParams.get('path');
+      const sizeParam = url.searchParams.get('size');
+
+      if (!rawPath) {
+        return new Response('File path missing', { status: 400 });
+      }
+
+      let filePath = rawPath;
+      try {
+        filePath = decodeURIComponent(rawPath);
+      } catch {
+        filePath = rawPath;
+      }
+
+      if (process.platform === 'win32' && /^\/[a-zA-Z]:/.test(filePath)) {
+        filePath = filePath.slice(1);
+      }
+
+      if (!fs.existsSync(filePath) && fs.existsSync(rawPath)) {
+        filePath = rawPath;
+      }
+
+      if (!fs.existsSync(filePath)) {
+        console.error('CullPrint: Dosya diskte bulunamadı:', filePath);
+        return new Response('File not found: ' + filePath, { status: 404 });
+      }
+
+      const size = parseInt(sizeParam || '240', 10) || 240;
+      const stat = await fs.promises.stat(filePath);
+      const cacheDir = path.join(os.tmpdir(), 'cullprint-thumbs');
+      if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+      }
+
+      const hash = crypto
+        .createHash('sha1')
+        .update(`${filePath}:${stat.mtimeMs}:${size}`)
+        .digest('hex');
+      const cachePath = path.join(cacheDir, `${hash}.jpg`);
+
+      if (fs.existsSync(cachePath)) {
+        const cachedBuffer = await fs.promises.readFile(cachePath);
+        return new Response(cachedBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': String(cachedBuffer.length),
+          },
+        });
+      }
+
+      const img = await nativeImage.createThumbnailFromPath(filePath, { width: size, height: size });
+      const buffer = img.toJPEG(86);
+      await fs.promises.writeFile(cachePath, buffer);
+
+      return new Response(buffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': String(buffer.length),
+        },
+      });
+    } catch (err) {
+      console.error('CullPrint Thumbnail Protocol Hatası:', err);
+      return new Response('Thumbnail load error', { status: 500 });
     }
   });
 

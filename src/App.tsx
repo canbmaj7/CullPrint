@@ -322,6 +322,7 @@ export const App: React.FC = () => {
         : (currentPhoto.isLandscape ?? true);
 
       // 1. Tam 1800x2400 piksel 300 DPI raster üret
+      // NEVER use media-thumb:// here — print raster must be generated from the full original file
       const mediaUrl = `media://${encodeURI(currentPhoto.path)}`;
       const base64Raster = await generatePrintRaster({
         imageUrl: mediaUrl,
@@ -435,6 +436,7 @@ export const App: React.FC = () => {
           ? !(targetPhoto?.isLandscape ?? true)
           : (targetPhoto?.isLandscape ?? true);
 
+        // NEVER use media-thumb:// here — print raster must be generated from the full original file
         const mediaUrl = `media://${encodeURI(job.photoPath)}`;
         const base64Raster = await generatePrintRaster({
           imageUrl: mediaUrl,

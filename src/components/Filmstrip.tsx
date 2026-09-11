@@ -35,7 +35,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
       <div className="filmstrip-scroll-area" ref={scrollRef}>
         {photos.map((photo, index) => {
           const isSelected = index === selectedIndex;
-          const mediaSrc = `media://${encodeURI(photo.path)}`;
+          const mediaSrc = `media-thumb://thumb?path=${encodeURIComponent(photo.path)}&size=240`;
 
           return (
             <div

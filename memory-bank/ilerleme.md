@@ -18,6 +18,7 @@
 - [x] GitHub Actions çapraz platform dağıtım iş akışı (`release.yml`) hazırlandı.
 - [x] Baskı Kuyruğu & Geçmişi Çekmecesi (QueueDrawer, CUPS senkronizasyonu, tek tıkla tekrar basma, rulo sayacı) tamamlandı.
 - [x] 7 kritik kararlılık ve güvenlik hatası giderildi (fotoğraf atlama, tainted canvas, drag-drop await kaybı, cancel job ID, drawer klavye kilitleri, dragleave titremesi, execFileAsync dönüşümü).
+- [x] Yüksek çözünürlüklü fotoğraflar (20-45MB) için `media-thumb://` önbellekli thumbnail & proxy boru hattı uygulandı.
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
 - [ ] Sahada DNP DS620 ile ilk fiziksel baskı testi.

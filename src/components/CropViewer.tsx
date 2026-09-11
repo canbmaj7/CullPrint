@@ -36,8 +36,8 @@ export const CropViewer: React.FC<CropViewerProps> = ({
     );
   }
 
-  // URL oluşturma (Electron custom media protocol)
-  const mediaSrc = `media://${encodeURI(photo.path)}`;
+  // URL oluşturma (Electron custom media protocol / proxy cache)
+  const mediaSrc = `media-thumb://thumb?path=${encodeURIComponent(photo.path)}&size=1600`;
 
   // Manuel döndürme ve doğal EXIF yönü hesabı
   const totalRotation = (photo.userRotation || 0) % 360;
