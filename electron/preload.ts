@@ -5,6 +5,10 @@ export interface FileItem {
   path: string;
   size: number;
   lastModified: number;
+  orientation?: number;
+  width?: number;
+  height?: number;
+  isLandscape?: boolean;
 }
 
 export interface PrinterInfo {
@@ -32,6 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveTempPrintFile: (base64Data: string): Promise<string> => ipcRenderer.invoke('save-temp-print-file', base64Data),
   executePrint: (params: PrintJobParams): Promise<{ success: boolean; output: string; error?: string }> =>
     ipcRenderer.invoke('execute-print', params),
+  getFileInfo: (filePath: string): Promise<FileItem | null> => ipcRenderer.invoke('get-file-info', filePath),
   getFilePath: (file: File): string => {
     try {
       return webUtils.getPathForFile(file);

@@ -5,6 +5,10 @@ export interface FileItem {
   path: string;
   size: number;
   lastModified: number;
+  orientation?: number;
+  width?: number;
+  height?: number;
+  isLandscape?: boolean;
 }
 
 export interface PrinterInfo {
@@ -31,6 +35,7 @@ export interface IElectronAPI {
   getPrinterOptions: (printerName: string) => Promise<{ raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; error?: string }>;
+  getFileInfo: (filePath: string) => Promise<FileItem | null>;
   getFilePath: (file: File) => string;
 }
 

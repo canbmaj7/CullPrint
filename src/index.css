@@ -135,7 +135,7 @@ body {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .brand-subtitle {
@@ -248,7 +248,7 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #07080a;
+  background-color: var(--bg-app);
   position: relative;
   overflow: hidden;
 }
@@ -267,7 +267,7 @@ body {
   justify-content: space-between;
   padding: 10px 16px;
   z-index: 10;
-  background: linear-gradient(to bottom, rgba(7, 8, 10, 0.8), transparent);
+  background: linear-gradient(to bottom, var(--bg-app), transparent);
 }
 
 .photo-meta-badge {
@@ -279,7 +279,7 @@ body {
 .file-name {
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   font-family: var(--font-mono);
 }
 
@@ -319,7 +319,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px;
+  padding: 16px;
   position: relative;
   overflow: hidden;
   cursor: grab;
@@ -333,10 +333,10 @@ body {
   position: relative;
   max-width: 90%;
   max-height: 90%;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 20px 40px rgba(0, 0, 0, 0.8);
-  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--border-subtle), 0 16px 36px rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
   overflow: hidden;
-  background-color: #000;
+  background-color: var(--bg-card);
 }
 
 .image-transform-container {
@@ -381,7 +381,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  background: linear-gradient(to top, rgba(7, 8, 10, 0.9), transparent);
+  background: linear-gradient(to top, var(--bg-app), transparent);
   z-index: 10;
 }
 
@@ -391,14 +391,14 @@ body {
   gap: 8px;
   font-size: 11.5px;
   color: var(--text-secondary);
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   padding: 5px 10px;
   border-radius: var(--radius-sm);
 }
 
 .crop-tip-pill b {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .control-btn-group {
@@ -424,7 +424,7 @@ body {
 
 .action-btn:hover {
   background-color: var(--bg-hover);
-  border-color: #3e4758;
+  border-color: var(--border-focus);
 }
 
 .action-btn.text-btn {
@@ -434,8 +434,8 @@ body {
 }
 
 .action-btn.text-btn:hover {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
 }
 
 /* Empty State */
@@ -449,13 +449,13 @@ body {
 
 .empty-message {
   text-align: center;
-  max-width: 320px;
+  max-width: 340px;
 }
 
 .empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 

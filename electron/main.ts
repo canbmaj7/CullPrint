@@ -1,12 +1,69 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { pathToFileURL } from 'node:url';
+import exifr from 'exifr';
 
 const execAsync = promisify(exec);
+
+function getJpegDimensions(buffer: Buffer) {
+  let offset = 2;
+  while (offset < buffer.length) {
+    if (buffer[offset] !== 0xff) break;
+    const marker = buffer[offset + 1];
+    if (marker === 0xc0 || marker === 0xc2) {
+      const height = buffer.readUInt16BE(offset + 5);
+      const width = buffer.readUInt16BE(offset + 7);
+      return { width, height };
+    }
+    const len = buffer.readUInt16BE(offset + 2);
+    offset += 2 + len;
+  }
+  return null;
+}
+
+async function parseImageInfo(filePath: string) {
+  let orientation = 1;
+  let width = 6000;
+  let height = 4000;
+
+  try {
+    const fd = await fs.promises.open(filePath, 'r');
+    const buffer = Buffer.alloc(65536);
+    await fd.read(buffer, 0, 65536, 0);
+    await fd.close();
+
+    // 1. JPEG binary marker boyutları
+    const dims = getJpegDimensions(buffer);
+    if (dims) {
+      width = dims.width;
+      height = dims.height;
+    }
+
+    // 2. EXIF yön bilgisi (Buffer üzerinden exifr)
+    try {
+      const data = await exifr.parse(buffer, ['Orientation']);
+      if (data?.Orientation) {
+        orientation = data.Orientation;
+      }
+    } catch {
+      // EXIF yoksa varsayılan devam
+    }
+  } catch (err) {
+    console.warn('Metadata okuma hatası:', filePath, err);
+  }
+
+  if (orientation === 6 || orientation === 8) {
+    const tmp = width;
+    width = height;
+    height = tmp;
+  }
+  const isLandscape = width >= height;
+
+  return { orientation, width, height, isLandscape };
+}
 
 // Custom protocol for serving local media securely
 protocol.registerSchemesAsPrivileged([
@@ -50,23 +107,45 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  // Register 'media://' protocol handler
-  protocol.handle('media', (request) => {
+  // Register 'media://' protocol handler with direct fs reading
+  protocol.handle('media', async (request) => {
     try {
-      // Decode the URL path
-      // media:///home/user/photo.jpg -> /home/user/photo.jpg
-      const urlObj = new URL(request.url);
-      let filePath = decodeURIComponent(urlObj.pathname);
+      // Strip 'media://' or 'media:///'
+      let raw = request.url.replace(/^media:\/\/+/, '');
+      if (process.platform !== 'win32' && !raw.startsWith('/')) {
+        raw = '/' + raw;
+      }
+      let filePath = decodeURIComponent(raw);
 
-      // On Windows or certain URL formats, strip leading slash if needed
-      if (process.platform === 'win32' && filePath.startsWith('/')) {
+      // On Windows: /C:/path -> C:/path
+      if (process.platform === 'win32' && /^\/[a-zA-Z]:/.test(filePath)) {
         filePath = filePath.slice(1);
       }
 
-      return net.fetch(pathToFileURL(filePath).toString());
+      if (!fs.existsSync(filePath)) {
+        console.error('CullPrint: Dosya diskte bulunamadı:', filePath);
+        return new Response('File not found: ' + filePath, { status: 404 });
+      }
+
+      const buffer = await fs.promises.readFile(filePath);
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+      };
+
+      return new Response(buffer, {
+        status: 200,
+        headers: {
+          'Content-Type': mimeTypes[ext] || 'image/jpeg',
+          'Content-Length': String(buffer.length),
+        },
+      });
     } catch (err) {
-      console.error('Error handling media protocol:', err);
-      return new Response('File not found', { status: 404 });
+      console.error('CullPrint Media Protocol Hatası:', err);
+      return new Response('Media load error', { status: 500 });
     }
   });
 
@@ -110,17 +189,38 @@ ipcMain.handle('select-files', async () => {
   for (const filePath of result.filePaths) {
     try {
       const stat = await fs.promises.stat(filePath);
+      const meta = await parseImageInfo(filePath);
       files.push({
         name: path.basename(filePath),
         path: filePath,
         size: stat.size,
         lastModified: stat.mtimeMs,
+        ...meta,
       });
     } catch (e) {
       console.error('Dosya okunamadı:', filePath, e);
     }
   }
   return files;
+});
+
+// 1.8. Get Single File Info (Drag & Drop için)
+ipcMain.handle('get-file-info', async (_event, filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const stat = await fs.promises.stat(filePath);
+    const meta = await parseImageInfo(filePath);
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+      size: stat.size,
+      lastModified: stat.mtimeMs,
+      ...meta,
+    };
+  } catch (err) {
+    console.error('get-file-info hatası:', filePath, err);
+    return null;
+  }
 });
 
 // 2. Read Folder for Images
@@ -138,11 +238,13 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
         if (imageExtensions.has(ext)) {
           const fullPath = path.join(folderPath, entry.name);
           const stat = await fs.promises.stat(fullPath);
+          const meta = await parseImageInfo(fullPath);
           files.push({
             name: entry.name,
             path: fullPath,
             size: stat.size,
             lastModified: stat.mtimeMs,
+            ...meta,
           });
         }
       }

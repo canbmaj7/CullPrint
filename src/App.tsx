@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode } from './types';
-import { getPhotoMetadata } from './utils/exif';
 import { generatePrintRaster } from './utils/rasterizer';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
@@ -71,7 +70,7 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [selectedPrinter]);
 
-  // Yardımcı: Fotoğraf listesini güncelleme ve EXIF metadata zenginleştirme
+  // Yardımcı: Fotoğraf listesini güncelleme
   const addFilesToPhotos = useCallback((newFiles: FileItem[], isAppend = false) => {
     const newPhotos: PhotoItem[] = newFiles.map((file) => ({
       ...file,
@@ -80,11 +79,14 @@ export const App: React.FC = () => {
       cropOffsetX: 0,
       cropOffsetY: 0,
       userRotation: 0,
+      orientation: file.orientation ?? 1,
+      width: file.width || 6000,
+      height: file.height || 4000,
+      isLandscape: file.isLandscape ?? ((file.width || 6000) >= (file.height || 4000)),
     }));
 
     setPhotos((prev) => {
       const merged = isAppend ? [...prev, ...newPhotos] : newPhotos;
-      // Yinelenen dosya yollarını temizle
       const seen = new Set<string>();
       return merged.filter((p) => {
         if (seen.has(p.path)) return false;
@@ -96,25 +98,6 @@ export const App: React.FC = () => {
     if (!isAppend) {
       setSelectedIndex(0);
     }
-
-    // EXIF metadata asenkron doldurma
-    newPhotos.forEach(async (photo) => {
-      const mediaUrl = `media://${encodeURI(photo.path)}`;
-      const meta = await getPhotoMetadata(mediaUrl);
-      setPhotos((prev) =>
-        prev.map((p) =>
-          p.path === photo.path
-            ? {
-                ...p,
-                orientation: meta.orientation,
-                width: meta.width,
-                height: meta.height,
-                isLandscape: meta.isLandscape,
-              }
-            : p
-        )
-      );
-    });
   }, []);
 
   // 2. Klasör Seçimi
@@ -176,12 +159,17 @@ export const App: React.FC = () => {
       if (fullPath) {
         const ext = fullPath.substring(fullPath.lastIndexOf('.')).toLowerCase();
         if (validExtensions.has(ext)) {
-          droppedFiles.push({
-            name: file.name,
-            path: fullPath,
-            size: file.size,
-            lastModified: file.lastModified,
-          });
+          const info = await window.electronAPI.getFileInfo(fullPath);
+          if (info) {
+            droppedFiles.push(info);
+          } else {
+            droppedFiles.push({
+              name: file.name,
+              path: fullPath,
+              size: file.size,
+              lastModified: file.lastModified,
+            });
+          }
         }
       }
     }
