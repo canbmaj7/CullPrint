@@ -1,5 +1,5 @@
-/* CullPrint - Professional Darkroom UI Design System */
-:root {
+:root,
+[data-theme="dark"] {
   --bg-app: #0a0c0f;
   --bg-panel: #12151a;
   --bg-card: #181c23;
@@ -15,6 +15,8 @@
   --accent-blue-hover: #1d4ed8;
   --success-green: #10b981;
   --success-bg: rgba(16, 185, 129, 0.12);
+  --warning-amber: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.12);
   --error-red: #ef4444;
   --error-bg: rgba(239, 68, 68, 0.12);
 
@@ -22,6 +24,50 @@
   --radius-md: 6px;
   --radius-lg: 8px;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="light"] {
+  --bg-app: #f1f3f7;
+  --bg-panel: #ffffff;
+  --bg-card: #f8fafc;
+  --bg-hover: #e8ecf2;
+  --border-subtle: #d6dbe3;
+  --border-focus: #2563eb;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #8b95a5;
+
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  --success-green: #059669;
+  --success-bg: rgba(5, 150, 105, 0.1);
+  --warning-amber: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.1);
+  --error-red: #dc2626;
+  --error-bg: rgba(220, 38, 38, 0.1);
+}
+
+[data-theme="neutral"] {
+  --bg-app: #222326;
+  --bg-panel: #2d2e33;
+  --bg-card: #37383f;
+  --bg-hover: #44464f;
+  --border-subtle: #4b4d57;
+  --border-focus: #60a5fa;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --accent-blue: #3b82f6;
+  --accent-blue-hover: #2563eb;
+  --success-green: #10b981;
+  --success-bg: rgba(16, 185, 129, 0.15);
+  --warning-amber: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --error-red: #f87171;
+  --error-bg: rgba(248, 113, 113, 0.15);
 }
 
 * {
@@ -862,3 +908,73 @@ kbd {
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* Drag and Drop Fullscreen Overlay */
+.drag-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(10, 12, 15, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: 3px dashed var(--accent-blue);
+  pointer-events: none;
+}
+
+.drag-drop-icon {
+  color: var(--accent-blue);
+  animation: bounce 1s infinite alternate ease-in-out;
+}
+
+@keyframes bounce {
+  from { transform: translateY(-8px); }
+  to { transform: translateY(8px); }
+}
+
+.drag-drop-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.drag-drop-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Theme Switcher Button */
+.theme-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.theme-switch-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+/* Status Indicator Dot with Warning / Amber */
+.status-indicator-dot.warning {
+  background-color: var(--warning-amber);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.status-warning-text {
+  font-size: 11px;
+  color: var(--warning-amber);
+  margin-top: 4px;
+}
+

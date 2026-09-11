@@ -94,6 +94,35 @@ ipcMain.handle('select-folder', async () => {
   return result.filePaths[0];
 });
 
+// 1.5. Select Multiple Files Dialog (Doğrudan Fotoğraf Ekleme)
+ipcMain.handle('select-files', async () => {
+  if (!mainWindow) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'multiSelections'],
+    title: 'Fotoğraf Seçin (Tek veya Çoklu)',
+    filters: [
+      { name: 'Fotoğraflar', extensions: ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) return [];
+
+  const files = [];
+  for (const filePath of result.filePaths) {
+    try {
+      const stat = await fs.promises.stat(filePath);
+      files.push({
+        name: path.basename(filePath),
+        path: filePath,
+        size: stat.size,
+        lastModified: stat.mtimeMs,
+      });
+    } catch (e) {
+      console.error('Dosya okunamadı:', filePath, e);
+    }
+  }
+  return files;
+});
+
 // 2. Read Folder for Images
 ipcMain.handle('read-folder', async (_event, folderPath: string) => {
   try {
@@ -128,12 +157,22 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
   }
 });
 
-// 3. Get CUPS Printers
+// 3. Get CUPS Printers & USB Connection Check
 ipcMain.handle('get-printers', async () => {
   try {
     const { stdout } = await execAsync('lpstat -p -d');
     const lines = stdout.split('\n');
     let defaultPrinter = '';
+
+    // Check physical USB connection via lsusb
+    let isUsbPhysicallyConnected = false;
+    try {
+      const { stdout: lsusbOut } = await execAsync('lsusb');
+      // 1208 is DNP vendor ID, or match device strings
+      isUsbPhysicallyConnected = /1208:|ds620|dai nippon|dnp/i.test(lsusbOut);
+    } catch {
+      // ignore if lsusb not available
+    }
 
     const printers = [];
 
@@ -158,6 +197,7 @@ ipcMain.handle('get-printers', async () => {
           status,
           isDefault: name === defaultPrinter,
           isDNP,
+          usbConnected: isDNP ? isUsbPhysicallyConnected : true,
         });
       }
     }

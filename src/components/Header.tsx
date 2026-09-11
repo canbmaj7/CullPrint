@@ -1,6 +1,6 @@
 import React from 'react';
-import { FolderOpen, Printer, CheckCircle2, Image as ImageIcon, Filter } from 'lucide-react';
-import { FilterMode } from '../types';
+import { FolderOpen, PlusSquare, Printer, CheckCircle2, Image as ImageIcon, Filter, Sun, Moon, Eye } from 'lucide-react';
+import { FilterMode, ThemeMode } from '../types';
 
 interface HeaderProps {
   currentFolder: string | null;
@@ -8,7 +8,10 @@ interface HeaderProps {
   printedCount: number;
   unprintedCount: number;
   filterMode: FilterMode;
+  theme: ThemeMode;
   onSelectFolder: () => void;
+  onSelectFiles: () => void;
+  onToggleTheme: () => void;
   onFilterChange: (mode: FilterMode) => void;
 }
 
@@ -18,7 +21,10 @@ export const Header: React.FC<HeaderProps> = ({
   printedCount,
   unprintedCount,
   filterMode,
+  theme,
   onSelectFolder,
+  onSelectFiles,
+  onToggleTheme,
   onFilterChange,
 }) => {
   return (
@@ -34,12 +40,18 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Orta: Klasör Seçici ve Yol */}
+      {/* Orta: Klasör Seçici, Fotoğraf Ekle ve Yol */}
       <div className="header-folder-section">
-        <button className="folder-select-btn" onClick={onSelectFolder} title="SD Kart veya Fotoğraf Klasörü Seç">
-          <FolderOpen size={16} />
-          <span>{currentFolder ? 'Klasör Değiştir' : 'Fotoğraf Klasörü Seç'}</span>
+        <button className="folder-select-btn" onClick={onSelectFolder} title="SD Kart veya Klasör Seç">
+          <FolderOpen size={15} />
+          <span>{currentFolder ? 'Klasör Değiştir' : 'Klasör Seç'}</span>
         </button>
+
+        <button className="folder-select-btn" onClick={onSelectFiles} title="Tekil veya Çoklu Fotoğraf Ekle">
+          <PlusSquare size={15} />
+          <span>Fotoğraf Ekle</span>
+        </button>
+
         {currentFolder && (
           <div className="folder-path-display" title={currentFolder}>
             {currentFolder}
@@ -47,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Sağ: İstatistikler ve Filtre */}
+      {/* Sağ: İstatistikler, Filtre ve Tema Değiştirici */}
       <div className="header-actions">
         {totalCount > 0 && (
           <div className="filter-group">
@@ -76,6 +88,19 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         )}
+
+        {/* Tema Değiştirici Buton */}
+        <button
+          className="theme-switch-btn"
+          onClick={onToggleTheme}
+          title={`Tema Değiştir (Şu an: ${
+            theme === 'dark' ? 'Koyu Stüdyo' : theme === 'light' ? 'Açık Stüdyo' : '%18 Nötr Gri'
+          })`}
+        >
+          {theme === 'dark' && <Moon size={15} />}
+          {theme === 'light' && <Sun size={15} />}
+          {theme === 'neutral' && <Eye size={15} />}
+        </button>
       </div>
     </header>
   );

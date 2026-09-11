@@ -12,6 +12,7 @@ export interface PrinterInfo {
   isDefault: boolean;
   status: string;
   isDNP: boolean;
+  usbConnected: boolean;
 }
 
 export interface PrintJobParams {
@@ -24,11 +25,13 @@ export interface PrintJobParams {
 
 export interface IElectronAPI {
   selectFolder: () => Promise<string | null>;
+  selectFiles: () => Promise<FileItem[]>;
   readFolder: (folderPath: string) => Promise<FileItem[]>;
   getPrinters: () => Promise<PrinterInfo[]>;
   getPrinterOptions: (printerName: string) => Promise<{ raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; error?: string }>;
+  getFilePath: (file: File) => string;
 }
 
 declare global {

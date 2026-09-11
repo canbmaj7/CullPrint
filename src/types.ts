@@ -16,9 +16,12 @@ export interface PhotoItem {
 
 export type FilterMode = 'all' | 'unprinted' | 'printed';
 
+export type ThemeMode = 'dark' | 'light' | 'neutral';
+
 export interface PrinterState {
   name: string;
   isDefault: boolean;
   status: string;
   isDNP: boolean;
+  usbConnected?: boolean;
 }

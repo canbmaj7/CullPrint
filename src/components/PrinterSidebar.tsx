@@ -40,7 +40,20 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
             <Printer size={15} />
             <span className="card-title">Yazıcı İstasyonu</span>
           </div>
-          <span className={`status-indicator-dot ${activePrinter ? 'online' : 'offline'}`} />
+          <span
+            className={`status-indicator-dot ${
+              !activePrinter
+                ? 'offline'
+                : activePrinter.usbConnected === false
+                ? 'warning'
+                : 'online'
+            }`}
+            title={
+              activePrinter?.usbConnected === false
+                ? 'CUPS Kuyruğu Hazır ancak USB kablosu takılı değil'
+                : 'Yazıcı Hazır ve Bağlı'
+            }
+          />
         </div>
 
         {printers.length > 0 ? (
@@ -57,8 +70,20 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
               ))}
             </select>
             <div className="printer-status-text">
-              Durum: <b>{activePrinter?.status || 'Bilinmiyor'}</b>
+              Kuyruk: <b>{activePrinter?.status || 'Bilinmiyor'}</b>
             </div>
+
+            {/* USB Durum Uyarısı */}
+            {activePrinter?.isDNP && activePrinter.usbConnected === false && (
+              <div className="status-warning-text">
+                ⚠️ USB Kablosu Takılı Değil
+              </div>
+            )}
+            {activePrinter?.isDNP && activePrinter.usbConnected === true && (
+              <div className="printer-status-text" style={{ color: 'var(--success-green)' }}>
+                ✓ USB Cihazı Algılandı (Hazır)
+              </div>
+            )}
           </div>
         ) : (
           <div className="no-printer-alert">

@@ -21,9 +21,14 @@
 6. **Klavye Odaklı Seri İş Akışı:**
    - `Space` / `Enter` ile fotoğrafı yazıcıya gönderip, "✓ BASILDI" damgası vurup anında bir sonraki fotoğrafa geçme akışı sağlandı.
    - Rakam tuşları (`1-9`) ile anında kopya adedi belirleme entegre edildi.
-7. **Tasarım:**
-   - Profesyonel karanlık stüdyo teması (Capture One / Leica hissi; yapay zeka klişesi neon renklerden uzak, net ve işlevsel).
-8. **Dağıtım ve CI/CD:**
+7. **Tasarım & Çoklu Tema:**
+   - 3 Farklı Tema Modu: **Koyu Stüdyo** (varsayılan), **Açık Stüdyo** (Lightroom tarzı) ve **%18 Nötr Gri** (renk doğruluğu modu).
+   - Kullanıcı tercihi `localStorage` içine kaydedilir.
+8. **Esnek Fotoğraf Alma (Drag & Drop + Tekil Seçim):**
+   - Klasör zorunluluğu kaldırıldı: Masaüstünden veya dosya yöneticisinden fotoğraf sürükleyip bırakma (Drag & Drop) ve "Fotoğraf Ekle" butonu eklendi.
+9. **Gerçek USB Donanım Takibi:**
+   - CUPS kuyruk durumu ("idle") ile fiziksel USB bağlantısı ayrıştırıldı (`lsusb` kontrolü). Kablo takılı olmadığında panelde açıkça `⚠️ USB Kablosu Takılı Değil` uyarısı verilir ve kablo takıldığı an canlı olarak yeşile döner.
+10. **Dağıtım ve CI/CD:**
    - `.github/workflows/release.yml` ile Linux, Windows ve macOS için bulut derleme pipeline'ı kuruldu.
    - Yerel Linux `CullPrint-1.0.0.AppImage` paketi başarıyla derlendi ve test edildi.
 

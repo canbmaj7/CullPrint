@@ -1,17 +1,38 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { PhotoItem, FilterMode, PrinterState } from './types';
+import { UploadCloud } from 'lucide-react';
+import { PhotoItem, FilterMode, PrinterState, ThemeMode } from './types';
 import { getPhotoMetadata } from './utils/exif';
 import { generatePrintRaster } from './utils/rasterizer';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
 import { PrinterSidebar } from './components/PrinterSidebar';
+import { FileItem } from './vite-env';
 
 export const App: React.FC = () => {
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+
+  // Tema Yönetimi (Dark / Light / Neutral)
+  const [theme, setTheme] = useState<ThemeMode>(() => {
+    return (localStorage.getItem('cullprint_theme') as ThemeMode) || 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('cullprint_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      if (prev === 'dark') return 'light';
+      if (prev === 'light') return 'neutral';
+      return 'dark';
+    });
+  };
 
   // Yazıcı Ayarları
   const [printers, setPrinters] = useState<PrinterState[]>([]);
@@ -21,7 +42,7 @@ export const App: React.FC = () => {
   const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [lastPrintStatus, setLastPrintStatus] = useState<{ success: boolean; message: string } | null>(null);
 
-  // 1. Sistemdeki Yazıcıları Yükle
+  // 1. Sistemdeki Yazıcıları Yükle ve USB Takılmasını Canlı İzle
   useEffect(() => {
     async function loadPrinters() {
       if (!window.electronAPI) return;
@@ -30,21 +51,73 @@ export const App: React.FC = () => {
         setPrinters(list);
 
         // DNP DS620 varsa öncelikli seç
-        const dnp = list.find((p) => p.isDNP);
-        if (dnp) {
-          setSelectedPrinter(dnp.name);
-        } else if (list.length > 0) {
-          const def = list.find((p) => p.isDefault) || list[0];
-          setSelectedPrinter(def.name);
+        if (!selectedPrinter) {
+          const dnp = list.find((p) => p.isDNP);
+          if (dnp) {
+            setSelectedPrinter(dnp.name);
+          } else if (list.length > 0) {
+            const def = list.find((p) => p.isDefault) || list[0];
+            setSelectedPrinter(def.name);
+          }
         }
       } catch (err) {
         console.error('Yazıcılar yüklenirken hata:', err);
       }
     }
+
     loadPrinters();
+    // USB takılıp çıkarıldığında canlı algılamak için her 4 saniyede bir kontrol et
+    const interval = setInterval(loadPrinters, 4000);
+    return () => clearInterval(interval);
+  }, [selectedPrinter]);
+
+  // Yardımcı: Fotoğraf listesini güncelleme ve EXIF metadata zenginleştirme
+  const addFilesToPhotos = useCallback((newFiles: FileItem[], isAppend = false) => {
+    const newPhotos: PhotoItem[] = newFiles.map((file) => ({
+      ...file,
+      printed: false,
+      printCount: 0,
+      cropOffsetX: 0,
+      cropOffsetY: 0,
+      userRotation: 0,
+    }));
+
+    setPhotos((prev) => {
+      const merged = isAppend ? [...prev, ...newPhotos] : newPhotos;
+      // Yinelenen dosya yollarını temizle
+      const seen = new Set<string>();
+      return merged.filter((p) => {
+        if (seen.has(p.path)) return false;
+        seen.add(p.path);
+        return true;
+      });
+    });
+
+    if (!isAppend) {
+      setSelectedIndex(0);
+    }
+
+    // EXIF metadata asenkron doldurma
+    newPhotos.forEach(async (photo) => {
+      const mediaUrl = `media://${encodeURI(photo.path)}`;
+      const meta = await getPhotoMetadata(mediaUrl);
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.path === photo.path
+            ? {
+                ...p,
+                orientation: meta.orientation,
+                width: meta.width,
+                height: meta.height,
+                isLandscape: meta.isLandscape,
+              }
+            : p
+        )
+      );
+    });
   }, []);
 
-  // 2. Klasör Seçimi ve Fotoğrafları Yükleme
+  // 2. Klasör Seçimi
   const handleSelectFolder = async () => {
     if (!window.electronAPI) return;
     try {
@@ -53,40 +126,68 @@ export const App: React.FC = () => {
 
       setCurrentFolder(folderPath);
       const files = await window.electronAPI.readFolder(folderPath);
-
-      // Temel liste
-      const initialPhotos: PhotoItem[] = files.map((file) => ({
-        ...file,
-        printed: false,
-        printCount: 0,
-        cropOffsetX: 0,
-        cropOffsetY: 0,
-        userRotation: 0,
-      }));
-
-      setPhotos(initialPhotos);
-      setSelectedIndex(0);
-
-      // EXIF metadata bilgilerini arka planda asenkron zenginleştir
-      initialPhotos.forEach(async (photo, idx) => {
-        const mediaUrl = `media://${encodeURI(photo.path)}`;
-        const meta = await getPhotoMetadata(mediaUrl);
-        setPhotos((prev) =>
-          prev.map((p, i) =>
-            i === idx
-              ? {
-                  ...p,
-                  orientation: meta.orientation,
-                  width: meta.width,
-                  height: meta.height,
-                  isLandscape: meta.isLandscape,
-                }
-              : p
-          )
-        );
-      });
+      addFilesToPhotos(files, false);
     } catch (err) {
       console.error('Klasör açma hatası:', err);
+    }
+  };
+
+  // 2.5 Doğrudan Fotoğraf(lar) Ekleme
+  const handleSelectFiles = async () => {
+    if (!window.electronAPI) return;
+    try {
+      const files = await window.electronAPI.selectFiles();
+      if (!files || files.length === 0) return;
+      addFilesToPhotos(files, true);
+    } catch (err) {
+      console.error('Fotoğraf seçme hatası:', err);
+    }
+  };
+
+  // 2.6 Drag & Drop (Sürükle - Bırak)
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Eğer pencere dışına çıkıldıysa kapat
+    if (e.currentTarget === e.target) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    if (!window.electronAPI || !e.dataTransfer.files) return;
+
+    const validExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+    const droppedFiles: FileItem[] = [];
+
+    for (let i = 0; i < e.dataTransfer.files.length; i++) {
+      const file = e.dataTransfer.files[i];
+      const fullPath = window.electronAPI.getFilePath(file);
+      if (fullPath) {
+        const ext = fullPath.substring(fullPath.lastIndexOf('.')).toLowerCase();
+        if (validExtensions.has(ext)) {
+          droppedFiles.push({
+            name: file.name,
+            path: fullPath,
+            size: file.size,
+            lastModified: file.lastModified,
+          });
+        }
+      }
+    }
+
+    if (droppedFiles.length > 0) {
+      addFilesToPhotos(droppedFiles, true);
     }
   };
 
@@ -210,7 +311,6 @@ export const App: React.FC = () => {
   // 5. Global Klavye Kısayolları
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Eğer bir input veya select odağındaysa kısayolları engelle
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
         return;
@@ -255,7 +355,6 @@ export const App: React.FC = () => {
           handleResetCrop();
           break;
 
-        // Rakam tuşları ile doğrudan kopya seçimi
         case '1':
         case '2':
         case '3':
@@ -282,7 +381,21 @@ export const App: React.FC = () => {
   const unprintedCount = photos.length - printedCount;
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Sürükle - Bırak Tam Ekran Katmanı */}
+      {isDragOver && (
+        <div className="drag-drop-overlay">
+          <UploadCloud size={64} className="drag-drop-icon" />
+          <span className="drag-drop-title">Fotoğrafları Buraya Bırakın</span>
+          <span className="drag-drop-subtitle">Tek veya çoklu fotoğraflar anında listeye eklenecek</span>
+        </div>
+      )}
+
       {/* Üst Bar */}
       <Header
         currentFolder={currentFolder}
@@ -290,7 +403,10 @@ export const App: React.FC = () => {
         printedCount={printedCount}
         unprintedCount={unprintedCount}
         filterMode={filterMode}
+        theme={theme}
         onSelectFolder={handleSelectFolder}
+        onSelectFiles={handleSelectFiles}
+        onToggleTheme={toggleTheme}
         onFilterChange={(mode) => {
           setFilterMode(mode);
           setSelectedIndex(0);
