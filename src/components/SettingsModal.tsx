@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Printer, Loader2, RotateCw, Check } from 'lucide-react';
 import { PrinterCapabilities, PrinterSettings } from '../types';
+import { describeFinish, FINISH_SECTION_HINT } from '../utils/finish';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -161,7 +162,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           {option.label}{' '}
                           <span className="settings-option-code">({option.name})</span>
                         </span>
-                        <span className="setting-badge-pill">Yüzey / Kalite</span>
+                        <span className="setting-badge-pill" title={FINISH_SECTION_HINT}>
+                          Yüzey / Kalite
+                        </span>
                       </div>
                       {option.choices.length <= 2 ? (
                         <div className="finish-toggle-group settings-finish-group">
@@ -170,6 +173,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               key={choice.value}
                               type="button"
                               className={`finish-btn settings-finish-btn ${currentVal === choice.value ? 'active' : ''}`}
+                              title={describeFinish(choice.value, choice.label)}
                               onClick={() =>
                                 setLocalSettings((prev) => ({
                                   ...prev,
@@ -195,7 +199,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }
                         >
                           {option.choices.map((choice) => (
-                            <option key={choice.value} value={choice.value}>
+                            <option
+                              key={choice.value}
+                              value={choice.value}
+                              title={describeFinish(choice.value, choice.label)}
+                            >
                               {choice.label} {choice.isDefault ? '(Varsayılan)' : ''}
                             </option>
                           ))}

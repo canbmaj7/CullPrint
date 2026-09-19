@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2, Pause, Play } from 'lucide-react';
 import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
+import { describeFinish, FINISH_SECTION_HINT } from '../utils/finish';
 
 interface PrinterSidebarProps {
   printers: PrinterState[];
@@ -246,13 +247,14 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
 
         {twoFinishChoices ? (
           <div className="setting-row">
-            <span className="setting-label">Baskı Yüzeyi</span>
+            <span className="setting-label" title={FINISH_SECTION_HINT}>Baskı Yüzeyi</span>
             <div className="finish-toggle-group">
               {twoFinishChoices.map((choice) => (
                 <button
                   key={choice.value}
                   className={`finish-btn ${finish === choice.value ? 'active' : ''}`}
                   onClick={() => onChangeFinish(choice.value)}
+                  title={describeFinish(choice.value, choice.label)}
                 >
                   {choice.label}
                 </button>
@@ -261,8 +263,10 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
           </div>
         ) : (
           <div className="setting-row">
-            <span className="setting-label">Baskı Yüzeyi</span>
-            <span className="setting-badge-pill">{finishLabel || 'Varsayılan'}</span>
+            <span className="setting-label" title={FINISH_SECTION_HINT}>Baskı Yüzeyi</span>
+            <span className="setting-badge-pill" title={describeFinish(finish, finishLabel)}>
+              {finishLabel || 'Varsayılan'}
+            </span>
           </div>
         )}
 
