@@ -50,6 +50,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
                   src={mediaSrc}
                   alt={photo.name}
                   loading="lazy"
+                  decoding="async"
                   className="thumb-img"
                 />
 

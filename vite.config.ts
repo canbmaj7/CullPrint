@@ -9,6 +9,12 @@ export default defineConfig({
     electron([
       {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            // sharp yerel (.node) ikili içerir, paketlenemez; çalışma zamanında node_modules'tan yüklenir
+            rollupOptions: { external: ['sharp'] },
+          },
+        },
       },
       {
         entry: 'electron/preload.ts',

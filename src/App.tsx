@@ -340,6 +340,24 @@ export const App: React.FC = () => {
   // Seçili aktif fotoğraf
   const currentPhoto = filteredPhotos[selectedIndex] || null;
 
+  // Komşu fotoğrafların 1600px önizlemesini önden çöz: ok tuşuyla geçiş anında olsun
+  useEffect(() => {
+    const neighbors = [selectedIndex + 1, selectedIndex - 1, selectedIndex + 2]
+      .map((i) => filteredPhotos[i])
+      .filter((p): p is PhotoItem => Boolean(p));
+    const imgs = neighbors.map((p) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = `media-thumb://thumb?path=${encodeURIComponent(p.path)}&size=1600`;
+      return img;
+    });
+    return () => {
+      imgs.forEach((img) => {
+        img.src = '';
+      });
+    };
+  }, [selectedIndex, filteredPhotos]);
+
   // 3. Döndürme ve Kadraj Ayarları
   const handleRotate = useCallback(() => {
     if (!currentPhoto) return;

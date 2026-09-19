@@ -10,6 +10,43 @@ import exifr from 'exifr';
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
+// sharp (libvips) opsiyonel: yüklenemezse platformun yerel küçük resim API'sine, o da yoksa orijinale düşülür
+let sharpModule: typeof import('sharp') | null | undefined;
+async function loadSharp() {
+  if (sharpModule === undefined) {
+    try {
+      sharpModule = (await import('sharp')).default;
+    } catch (err) {
+      console.warn('CullPrint: sharp yüklenemedi, yedek küçük resim yoluna düşülüyor:', err);
+      sharpModule = null;
+    }
+  }
+  return sharpModule;
+}
+
+const thumbJobs = new Map<string, Promise<Buffer>>();
+
+async function generateThumbnail(filePath: string, size: number, cachePath: string): Promise<Buffer> {
+  let buffer: Buffer;
+  const sharp = await loadSharp();
+  if (sharp) {
+    // rotate(): EXIF yönünü piksellere uygular, önizleme baskı raster'ıyla tutarlı kalır
+    buffer = await sharp(filePath)
+      .rotate()
+      .resize(size, size, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 86 })
+      .toBuffer();
+  } else if (typeof nativeImage.createThumbnailFromPath === 'function') {
+    const img = await nativeImage.createThumbnailFromPath(filePath, { width: size, height: size });
+    buffer = img.toJPEG(86);
+  } else {
+    // Linux'ta yerel API yok: orijinali sun (yavaş ama doğru), önbelleğe yazma
+    return fs.promises.readFile(filePath);
+  }
+  await fs.promises.writeFile(cachePath, buffer);
+  return buffer;
+}
+
 function getJpegDimensions(buffer: Buffer) {
   let offset = 2;
   while (offset < buffer.length) {
@@ -223,21 +260,13 @@ app.whenReady().then(() => {
         });
       }
 
-      // createThumbnailFromPath sadece macOS/Windows'ta var. Linux'ta orijinali olduğu gibi
-      // sun: Chromium EXIF yönünü uygular, böylece önizleme baskı raster'ıyla tutarlı kalır.
-      if (typeof nativeImage.createThumbnailFromPath !== 'function') {
-        const original = await fs.promises.readFile(filePath);
-        const ext = path.extname(filePath).toLowerCase();
-        const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-        return new Response(original, {
-          status: 200,
-          headers: { 'Content-Type': mime, 'Content-Length': String(original.length) },
-        });
+      // Aynı küçük resim için eşzamanlı istekler (önden yükleme + gerçek istek) tek üretimi paylaşır
+      let pending = thumbJobs.get(cachePath);
+      if (!pending) {
+        pending = generateThumbnail(filePath, size, cachePath).finally(() => thumbJobs.delete(cachePath));
+        thumbJobs.set(cachePath, pending);
       }
-
-      const img = await nativeImage.createThumbnailFromPath(filePath, { width: size, height: size });
-      const buffer = img.toJPEG(86);
-      await fs.promises.writeFile(cachePath, buffer);
+      const buffer = await pending;
 
       return new Response(buffer, {
         status: 200,
