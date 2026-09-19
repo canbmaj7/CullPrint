@@ -144,19 +144,28 @@ export const App: React.FC = () => {
     [selectedPrinter]
   );
 
+  // CUPS'ta takılı kalan işin nedeni (ör. "Printer open failure"); yazıcı 'idle' görünse bile
+  const [cupsJobProblem, setCupsJobProblem] = useState<string | null>(null);
+
   // CUPS Kuyruğunu Canlı İzle ve Tamamlanan İşleri Güncelle
   useEffect(() => {
     if (!window.electronAPI) return;
     const syncCupsQueue = async () => {
       try {
         const activeCupsJobs = await window.electronAPI!.getCupsQueue();
-        const activeCupsIds = new Set(activeCupsJobs.map((j) => j.id));
+        const cupsJobsById = new Map(activeCupsJobs.map((j) => [j.id, j]));
+        setCupsJobProblem(activeCupsJobs.find((j) => j.problem)?.problem ?? null);
 
         setQueue((prev) =>
           prev.map((job) => {
             if (job.cupsJobId && (job.status === 'printing' || job.status === 'queued')) {
-              if (!activeCupsIds.has(job.cupsJobId)) {
-                return { ...job, status: 'completed' };
+              const cupsJob = cupsJobsById.get(job.cupsJobId);
+              if (!cupsJob) {
+                return { ...job, status: 'completed', errorMessage: undefined };
+              }
+              // CUPS'ta takılı kalan işin nedenini çekmecede göster, sorun geçince kaldır
+              if (cupsJob.problem !== job.errorMessage) {
+                return { ...job, errorMessage: cupsJob.problem };
               }
             }
             return job;
@@ -871,6 +880,7 @@ export const App: React.FC = () => {
           capabilities={printerCapabilities}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onToggleQueue={handleToggleQueue}
+          cupsJobProblem={cupsJobProblem}
           isTogglingQueue={isTogglingQueue}
         />
       </div>

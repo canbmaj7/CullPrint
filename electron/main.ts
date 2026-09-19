@@ -392,9 +392,40 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
 });
 
 // 3. Get CUPS Printers & USB Connection Check
+// CUPS durum nedenleri (printer-state-reasons) → kullanıcıya gösterilecek Türkçe açıklama
+const PRINTER_REASON_LABELS: [RegExp, string][] = [
+  [/^media-empty/, 'Kâğıt bitti'],
+  [/^media-jam/, 'Kâğıt sıkıştı'],
+  [/^media-needed/, 'Kâğıt takılması gerekiyor'],
+  [/^marker-supply-empty/, 'Ribbon bitti'],
+  [/^(cover|door)-open/, 'Yazıcı kapağı açık'],
+  [/^offline/, 'Yazıcıya ulaşılamıyor (açık ve USB ile bağlı mı?)'],
+];
+// Backend'in durum mesajında hata belirten ifadeler ("Printing page 1, 100%" gibi ilerleme mesajları hariç)
+const ERROR_MESSAGE = /fail|error|empty|jam|not found|no matching|unable|offline/i;
+// Kuyruğu kullanıcı duraklattıysa CUPS mesajı boş, "Paused" ya da bizim yazdığımız neden olur
+const USER_PAUSE_MESSAGE = /^(CullPrint|Paused|$)/i;
+
+function describePrinterProblem(reasons: string[], message: string, disabled: boolean): string | undefined {
+  const problems: string[] = [];
+  for (const reason of reasons) {
+    const label = PRINTER_REASON_LABELS.find(([re]) => re.test(reason))?.[1];
+    if (label && !problems.includes(label)) problems.push(label);
+  }
+  if (disabled && !USER_PAUSE_MESSAGE.test(message)) {
+    problems.push(`Yazıcı hata nedeniyle durdu: ${message}`);
+  } else if (ERROR_MESSAGE.test(message)) {
+    problems.push(message);
+  }
+  return problems.length > 0 ? problems.join(' · ') : undefined;
+}
+
 ipcMain.handle('get-printers', async () => {
   try {
-    const { stdout } = await execAsync('lpstat -p -d', { env: { ...process.env, LC_ALL: 'C' } });
+    // -l: durum mesajı ve "Alerts:" (printer-state-reasons) satırlarını da verir
+    const { stdout } = await execFileAsync('lpstat', ['-l', '-p', '-d'], {
+      env: { ...process.env, LC_ALL: 'C' },
+    });
     const lines = stdout.split('\n');
     let defaultPrinter = '';
 
@@ -402,8 +433,8 @@ ipcMain.handle('get-printers', async () => {
     let isUsbPhysicallyConnected = false;
     try {
       const { stdout: lsusbOut } = await execAsync('lsusb');
-      // 1208 is DNP vendor ID, or match device strings
-      isUsbPhysicallyConnected = /1208:|ds620|dai nippon|dnp/i.test(lsusbOut);
+      // 1452 = Dai Nippon Printing USB vendor ID; cihaz adıyla da eşleştir
+      isUsbPhysicallyConnected = /\b1452:|ds620|dai nippon|dnp/i.test(lsusbOut);
     } catch {
       // ignore if lsusb not available
     }
@@ -418,28 +449,51 @@ ipcMain.handle('get-printers', async () => {
       }
     }
 
-    // Parse printer status: "printer Dai_Nippon_Printing_DP-DS620 is idle. enabled since..."
+    // Biçim (LC_ALL=C, -l):
+    //   printer X is idle.  enabled since ...        | now printing X-42. | disabled since ...
+    //   \t<durum mesajı>                            (varsa; ör. "Printer open failure (...)")
+    //   \tForm mounted: ...
+    //   \tAlerts: media-empty-error offline-report   (printer-state-reasons)
+    type Parsed = { name: string; status: string; message: string; reasons: string[]; seenFields: boolean };
+    const parsed: Parsed[] = [];
     for (const line of lines) {
-      // Biçimler: "printer X is idle.", "printer X now printing X-42.", "printer X disabled since ..."
       const match = line.match(/^printer\s+(\S+)\s+(.*)$/);
       if (match) {
-        const name = match[1];
         const rest = match[2];
         const status = /^now printing/.test(rest)
           ? 'printing'
           : /^disabled/.test(rest)
             ? 'disabled'
             : (rest.match(/^is\s+([^.]+)/)?.[1] ?? rest).trim();
-        const isDNP = /ds620|dnp|dai_nippon|rx1/i.test(name);
-
-        printers.push({
-          name,
-          status,
-          isDefault: name === defaultPrinter,
-          isDNP,
-          usbConnected: isDNP ? isUsbPhysicallyConnected : true,
-        });
+        parsed.push({ name: match[1], status, message: '', reasons: [], seenFields: false });
+        continue;
       }
+      const current = parsed[parsed.length - 1];
+      if (!current || !/^\s/.test(line)) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('Alerts:')) {
+        current.reasons = trimmed.slice('Alerts:'.length).trim().split(/\s+/).filter((r) => r && r !== 'none');
+      } else if (/^[A-Z][\w ]*:/.test(trimmed)) {
+        current.seenFields = true;
+      } else if (!current.seenFields && !current.message) {
+        // Alanlardan önce gelen ilk girintili satır durum mesajıdır
+        current.message = trimmed;
+      }
+    }
+
+    for (const p of parsed) {
+      const isDNP = /ds620|dnp|dai_nippon|rx1/i.test(p.name);
+      const disabled = p.status === 'disabled';
+      printers.push({
+        name: p.name,
+        status: p.status,
+        isDefault: p.name === defaultPrinter,
+        isDNP,
+        usbConnected: isDNP ? isUsbPhysicallyConnected : true,
+        stateMessage: p.message || undefined,
+        pausedByUser: disabled && USER_PAUSE_MESSAGE.test(p.message),
+        problem: describePrinterProblem(p.reasons, p.message, disabled),
+      });
     }
 
     return printers;
@@ -677,20 +731,48 @@ ipcMain.handle('set-printer-enabled', async (_event, printerName: string, enable
 // 8. Get CUPS Active Print Queue
 ipcMain.handle('get-cups-queue', async () => {
   try {
-    const { stdout } = await execAsync('lpstat -o');
-    const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
-    const jobs = [];
+    // -l: her iş için "Status:" (backend mesajı) ve "Alerts:" (job-state-reasons) satırları
+    const { stdout } = await execFileAsync('lpstat', ['-l', '-o'], {
+      env: { ...process.env, LC_ALL: 'C' },
+    });
+    const jobs: {
+      id: string;
+      printer: string;
+      user: string;
+      size: string;
+      date: string;
+      statusMessage?: string;
+      problem?: string;
+    }[] = [];
 
-    for (const line of lines) {
+    for (const line of stdout.split('\n')) {
+      if (!line.trim()) continue;
+      const current = jobs[jobs.length - 1];
+      if (/^\s/.test(line)) {
+        if (!current) continue;
+        const trimmed = line.trim();
+        if (trimmed.startsWith('Status:')) {
+          current.statusMessage = trimmed.slice('Status:'.length).trim() || undefined;
+        } else if (trimmed.startsWith('Alerts:')) {
+          const alerts = trimmed.slice('Alerts:'.length).trim().split(/\s+/);
+          // Bugün yaşanan durum: yazıcı "idle" görünürken iş "resources-are-not-ready" ile takılı kalıyordu
+          if (alerts.includes('resources-are-not-ready') || ERROR_MESSAGE.test(current.statusMessage ?? '')) {
+            current.problem = current.statusMessage || 'Yazıcı hazır değil, iş bekliyor';
+          }
+        }
+        continue;
+      }
       // Format: "Dai_Nippon_Printing_DP-DS620-42 username 1024 Fri 11 Sep 17:00:00 2026"
-      const parts = line.split(/\s+/);
+      const parts = line.trim().split(/\s+/);
       if (parts.length >= 4) {
         const id = parts[0];
-        const user = parts[1];
-        const size = parts[2];
-        const date = parts.slice(3).join(' ');
-        const printer = id.replace(/-\d+$/, '');
-        jobs.push({ id, printer, user, size, date });
+        jobs.push({
+          id,
+          printer: id.replace(/-\d+$/, ''),
+          user: parts[1],
+          size: parts[2],
+          date: parts.slice(3).join(' '),
+        });
       }
     }
     return jobs;

@@ -24,6 +24,9 @@ export interface PrinterState {
   status: string;
   isDNP: boolean;
   usbConnected?: boolean;
+  stateMessage?: string;
+  pausedByUser?: boolean;
+  problem?: string;
 }
 
 export interface PrintJob {

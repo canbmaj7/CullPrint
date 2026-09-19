@@ -17,6 +17,9 @@ export interface PrinterInfo {
   status: string;
   isDNP: boolean;
   usbConnected: boolean;
+  stateMessage?: string;
+  pausedByUser?: boolean;
+  problem?: string;
 }
 
 export interface PrintJobParams {
@@ -55,6 +58,8 @@ export interface CupsJobInfo {
   user: string;
   size: string;
   date: string;
+  statusMessage?: string;
+  problem?: string;
 }
 
 export interface IElectronAPI {

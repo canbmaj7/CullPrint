@@ -1067,6 +1067,39 @@ kbd {
   box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
 }
 
+.printer-problem-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1.4;
+  color: var(--error-red);
+  background-color: var(--error-bg);
+  border: 1px solid var(--error-red);
+  border-radius: var(--radius-sm);
+}
+
+.printer-problem-alert.stale {
+  color: var(--warning-amber);
+  background-color: var(--warning-bg);
+  border-color: var(--warning-amber);
+}
+
+.printer-problem-alert small {
+  display: block;
+  margin-top: 2px;
+  font-weight: var(--weight-normal);
+  opacity: 0.8;
+}
+
+.printer-problem-alert svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 .status-warning-text {
   font-size: var(--text-xs);
   color: var(--warning-amber);

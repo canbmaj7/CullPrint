@@ -19,6 +19,7 @@ interface PrinterSidebarProps {
   onOpenSettings: () => void;
   onToggleQueue: () => void;
   isTogglingQueue: boolean;
+  cupsJobProblem: string | null;
 }
 
 const QUEUE_STATUS_LABELS: Record<string, string> = {
@@ -44,9 +45,15 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   onOpenSettings,
   onToggleQueue,
   isTogglingQueue,
+  cupsJobProblem,
 }) => {
   const activePrinter = printers.find((p) => p.name === selectedPrinter);
   const isQueuePaused = activePrinter?.status === 'disabled';
+  // CUPS yazıcı düzeyindeki mesajı bir sonraki başarılı işe kadar saklar (backend yazıcıyla
+  // yalnızca baskı sırasında konuşur). Güncel sorun: takılı iş ya da hata ile durmuş kuyruk.
+  const stoppedByError = isQueuePaused && !activePrinter?.pausedByUser;
+  const currentProblem = cupsJobProblem || (stoppedByError ? activePrinter?.problem : null);
+  const lastAttemptProblem = !currentProblem ? activePrinter?.problem : null;
 
   const mediaOption = capabilities?.options.find((o) => o.name === capabilities.mediaOptionName);
   const mediaChoice = mediaOption?.choices.find((c) => c.value === currentSettings.mediaSize);
@@ -126,9 +133,11 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
               <div className="printer-status-text">
                 Kuyruk:{' '}
                 <b>
-                  {activePrinter
-                    ? QUEUE_STATUS_LABELS[activePrinter.status] || activePrinter.status
-                    : 'Bilinmiyor'}
+                  {!activePrinter
+                    ? 'Bilinmiyor'
+                    : isQueuePaused && !activePrinter.pausedByUser
+                      ? 'Hata ile durdu'
+                      : QUEUE_STATUS_LABELS[activePrinter.status] || activePrinter.status}
                 </b>
               </div>
               {activePrinter && (
@@ -154,7 +163,23 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
               )}
             </div>
 
-            {isQueuePaused && (
+            {currentProblem && (
+              <div className="printer-problem-alert" role="alert">
+                <AlertCircle size={14} />
+                <span>{currentProblem}</span>
+              </div>
+            )}
+            {lastAttemptProblem && (
+              <div className="printer-problem-alert stale">
+                <AlertCircle size={14} />
+                <span>
+                  Son baskı denemesinde: {lastAttemptProblem}
+                  <small>Bir sonraki baskıda güncellenir.</small>
+                </span>
+              </div>
+            )}
+
+            {isQueuePaused && activePrinter?.pausedByUser && (
               <div className="status-warning-text">
                 ⏸ Kuyruk duraklatıldı: gönderilen işler basılmadan bekler
               </div>
