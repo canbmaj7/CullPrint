@@ -1,7 +1,10 @@
 # Aktif Bağlam
 
 ## Mevcut Odak
-**CullPrint** MVP sürümü başarıyla kodlandı, derlendi ve Linux AppImage paketi üretildi.
+**Windows testi bekleniyor (2026-09-20).** Linux sürümü DS620 ile fiziksel olarak test edildi ve kullanımda.
+Windows yazdırma arka ucu yazıldı ama gerçek Windows + DS620 ile henüz denenmedi; kullanıcı Actions
+run 35460504144'ün `.exe`'siyle (taşınabilir `CullPrint 1.0.0.exe`) test edecek. Sonuçlar gelince önce
+onlara göre düzeltme yapılacak. Uygulama artık yazıcıdan bağımsız sunuluyor (README: "DS620 ile test edildi").
 
 ## Tamamlanan Geliştirme Adımları
 1. **İsim:** `CullPrint` (*Fast Photo Culling & Direct Print for DNP DS620*) olarak belirlendi.
@@ -90,6 +93,13 @@
     - **Planlanan: Oturum yedeği / çökme kurtarma** → `planOturumYedegi.md` (kodlanmadı, açık sorular var).
 
 ## Sonraki Adımlar
-- Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
-- Sürüm öncesi bilinen açık hata kalmadı; sıradaki adım yeni özellikler.
-- **Windows desteği:** Arka uç yazıldı; kullanıcının Windows makinesinde gerçek DS620 + DNP sürücüsüyle test edilecek (yazıcı algılama, USB, kâğıt listesi, parlak/mat, kenarsız baskı ölçeği, kopya, iptal, duraklatma). Yüzey özelliği sürücüde bulunamazsa yedek plan: iki ayrı Windows yazıcı örneği (Parlak/Mat).
+1. **Windows test sonuçları** (kullanıcı 2026-09-20'de dönecek). Bakılacaklar: yazıcı ve USB algılama, kâğıt
+   listesi, parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal, Windows'ta
+   duraklatmanın yönetici izni isteyip istemediği, tek örnek kilidi, kapanışta `%TEMP%\cullprint-spool` temizliği.
+   Sorun olursa `scripts\windows-tani.ps1` çıktısını (`cullprint-tani.txt`) iste. Yüzey özelliği sürücüde
+   bulunamazsa yedek plan: iki ayrı Windows yazıcı örneği (Parlak/Mat).
+2. **Oturum yedeği / çökme kurtarma** — `planOturumYedegi.md`; önce 6 açık soruyu kullanıcıyla netleştir.
+3. Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
+4. İsteğe bağlı temizlik: kullanılmayan `src/utils/exif.ts` (aynı EXIF metin hatası var, hiçbir yer içe aktarmıyor);
+   `electron/main.ts`'teki eski sharp tip hataları (`npx tsc -p tsconfig.node.json` ile görünür, `npm run compile` denetlemiyor);
+   `example/` test fotoğrafları klasörü git'te izlenmiyor (`.gitignore`'a eklenebilir).
