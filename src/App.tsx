@@ -200,6 +200,28 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [selectedPrinter]);
 
+  // CUPS kuyruğunu duraklat / devam ettir
+  const [isTogglingQueue, setIsTogglingQueue] = useState(false);
+  const handleToggleQueue = useCallback(async () => {
+    const printer = printers.find((p) => p.name === selectedPrinter);
+    if (!window.electronAPI || !printer || isTogglingQueue) return;
+    const enable = printer.status === 'disabled';
+    setIsTogglingQueue(true);
+    try {
+      const res = await window.electronAPI.setPrinterEnabled(printer.name, enable);
+      if (res.success) {
+        setPrinters(await window.electronAPI.getPrinters());
+      } else {
+        setLastPrintStatus({
+          success: false,
+          message: `Kuyruk ${enable ? 'başlatılamadı' : 'duraklatılamadı'}: ${res.error || 'Bilinmeyen hata'}`,
+        });
+      }
+    } finally {
+      setIsTogglingQueue(false);
+    }
+  }, [printers, selectedPrinter, isTogglingQueue]);
+
   // Yardımcı: Fotoğraf listesini güncelleme
   const addFilesToPhotos = useCallback((newFiles: FileItem[], isAppend = false) => {
     const newPhotos: PhotoItem[] = newFiles.map((file) => ({
@@ -833,6 +855,8 @@ export const App: React.FC = () => {
           currentSettings={printerSettings}
           capabilities={printerCapabilities}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onToggleQueue={handleToggleQueue}
+          isTogglingQueue={isTogglingQueue}
         />
       </div>
 

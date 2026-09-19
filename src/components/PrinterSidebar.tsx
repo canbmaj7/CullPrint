@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2, Pause, Play } from 'lucide-react';
 import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
 
 interface PrinterSidebarProps {
@@ -17,7 +17,15 @@ interface PrinterSidebarProps {
   currentSettings: PrinterSettings;
   capabilities: PrinterCapabilities | null;
   onOpenSettings: () => void;
+  onToggleQueue: () => void;
+  isTogglingQueue: boolean;
 }
+
+const QUEUE_STATUS_LABELS: Record<string, string> = {
+  idle: 'Hazır',
+  printing: 'Basıyor',
+  disabled: 'Duraklatıldı',
+};
 
 export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   printers,
@@ -34,8 +42,11 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   currentSettings,
   capabilities,
   onOpenSettings,
+  onToggleQueue,
+  isTogglingQueue,
 }) => {
   const activePrinter = printers.find((p) => p.name === selectedPrinter);
+  const isQueuePaused = activePrinter?.status === 'disabled';
 
   const mediaOption = capabilities?.options.find((o) => o.name === capabilities.mediaOptionName);
   const mediaChoice = mediaOption?.choices.find((c) => c.value === currentSettings.mediaSize);
@@ -111,9 +122,43 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
                 </option>
               ))}
             </select>
-            <div className="printer-status-text">
-              Kuyruk: <b>{activePrinter?.status || 'Bilinmiyor'}</b>
+            <div className="queue-status-row">
+              <div className="printer-status-text">
+                Kuyruk:{' '}
+                <b>
+                  {activePrinter
+                    ? QUEUE_STATUS_LABELS[activePrinter.status] || activePrinter.status
+                    : 'Bilinmiyor'}
+                </b>
+              </div>
+              {activePrinter && (
+                <button
+                  className={`queue-toggle-btn ${isQueuePaused ? 'paused' : ''}`}
+                  onClick={onToggleQueue}
+                  disabled={isTogglingQueue}
+                  title={
+                    isQueuePaused
+                      ? 'CUPS kuyruğunu devam ettir: bekleyen işler basılmaya başlar'
+                      : 'CUPS kuyruğunu duraklat: gönderilen işler kâğıda çıkmadan bekler'
+                  }
+                >
+                  {isTogglingQueue ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : isQueuePaused ? (
+                    <Play size={12} />
+                  ) : (
+                    <Pause size={12} />
+                  )}
+                  {isQueuePaused ? 'Devam Ettir' : 'Duraklat'}
+                </button>
+              )}
             </div>
+
+            {isQueuePaused && (
+              <div className="status-warning-text">
+                ⏸ Kuyruk duraklatıldı: gönderilen işler basılmadan bekler
+              </div>
+            )}
 
             {/* USB Durum Uyarısı */}
             {activePrinter?.isDNP && activePrinter.usbConnected === false && (

@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelPrintJob: (jobId: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('cancel-print-job', jobId),
   getCupsQueue: (): Promise<CupsJobInfo[]> => ipcRenderer.invoke('get-cups-queue'),
+  setPrinterEnabled: (printerName: string, enabled: boolean): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('set-printer-enabled', printerName, enabled),
   getFileInfo: (filePath: string): Promise<FileItem | null> => ipcRenderer.invoke('get-file-info', filePath),
   getFilePath: (file: File): string => {
     try {

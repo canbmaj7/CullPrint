@@ -649,6 +649,26 @@ ipcMain.handle('cancel-print-job', async (_event, jobId: string) => {
   }
 });
 
+// 7b. Pause / Resume CUPS queue (cupsdisable / cupsenable)
+ipcMain.handle('set-printer-enabled', async (_event, printerName: string, enabled: boolean) => {
+  try {
+    // Seçenek enjeksiyonunu engelle: yazıcı adı '-' ile başlayamaz
+    if (!printerName || printerName.startsWith('-')) {
+      return { success: false, error: 'Geçersiz yazıcı adı' };
+    }
+    if (enabled) {
+      await execFileAsync('cupsenable', [printerName]);
+    } else {
+      await execFileAsync('cupsdisable', ['-r', 'CullPrint: kuyruk duraklatıldı', printerName]);
+    }
+    return { success: true };
+  } catch (err: unknown) {
+    console.warn('CUPS kuyruk durumu değiştirilemedi:', err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    return { success: false, error: errorMsg };
+  }
+});
+
 // 8. Get CUPS Active Print Queue
 ipcMain.handle('get-cups-queue', async () => {
   try {

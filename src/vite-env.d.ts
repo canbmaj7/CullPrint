@@ -67,6 +67,7 @@ export interface IElectronAPI {
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }>;
   cancelPrintJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
   getCupsQueue: () => Promise<CupsJobInfo[]>;
+  setPrinterEnabled: (printerName: string, enabled: boolean) => Promise<{ success: boolean; error?: string }>;
   getFileInfo: (filePath: string) => Promise<FileItem | null>;
   getFilePath: (file: File) => string;
 }
