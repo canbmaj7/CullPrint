@@ -1,7 +1,7 @@
 import React from 'react';
 import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2, Pause, Play } from 'lucide-react';
 import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
-import { describeFinish, FINISH_SECTION_HINT } from '../utils/finish';
+import { describeFinish, finishDisplayName, FINISH_SECTION_HINT } from '../utils/finish';
 
 interface PrinterSidebarProps {
   printers: PrinterState[];
@@ -75,22 +75,12 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
       : finishOption && finishOption.choices.length === 2
       ? finishOption.choices.map((c) => ({
           value: c.value,
-          label: c.label === 'Glossy' ? 'Parlak' : c.label === 'Matte' ? 'Mat' : c.label,
+          label: finishDisplayName(c.value, c.label),
         }))
       : null;
 
   const finishChoice = finishOption?.choices.find((c) => c.value === finish);
-  const finishLabel = finishChoice
-    ? finishChoice.label === 'Glossy'
-      ? 'Parlak'
-      : finishChoice.label === 'Matte'
-      ? 'Mat'
-      : finishChoice.label
-    : finish === 'Glossy'
-    ? 'Parlak'
-    : finish === 'Matte'
-    ? 'Mat'
-    : finish;
+  const finishLabel = finishDisplayName(finish, finishChoice?.label);
 
   return (
     <aside className="printer-sidebar">

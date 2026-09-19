@@ -3,6 +3,7 @@ import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings } from './types';
 import { generatePrintRaster } from './utils/rasterizer';
 import { getCropAxis } from './utils/crop';
+import { finishDisplayName } from './utils/finish';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
@@ -497,6 +498,15 @@ export const App: React.FC = () => {
     );
   }, [currentPhoto]);
 
+  // Mesajlarda sürücünün seçenek etiketi kullanılır (Windows'ta yüzey değeri sürücü kimliğidir)
+  const finishName = (value: string) =>
+    finishDisplayName(
+      value,
+      printerCapabilities?.options
+        .find((o) => o.name === printerCapabilities.finishOptionName)
+        ?.choices.find((c) => c.value === value)?.label
+    );
+
   // 4. Yazdırma (Baskı Motoru)
   const handlePrint = useCallback(async () => {
     if (!currentPhoto || !window.electronAPI || isPrinting) return;
@@ -588,7 +598,7 @@ export const App: React.FC = () => {
 
         setLastPrintStatus({
           success: true,
-          message: `${currentPhoto.name} (${copies}x ${effectiveFinish}) kuyruğa gönderildi.`,
+          message: `${currentPhoto.name} kuyruğa gönderildi (${copies} kopya, ${finishName(effectiveFinish)}).`,
         });
       } else {
         nextTargetPathRef.current = null;
@@ -707,7 +717,7 @@ export const App: React.FC = () => {
           );
           setLastPrintStatus({
             success: true,
-            message: `${job.photoName} (${job.copies}x ${effectiveFinish}) tekrar basıldı.`,
+            message: `${job.photoName} tekrar kuyruğa gönderildi (${job.copies} kopya, ${finishName(effectiveFinish)}).`,
           });
         } else {
           setQueue((prev) =>

@@ -31,3 +31,17 @@ export function describeFinish(value: string, label?: string): string | undefine
   const text = `${label ?? ''} ${value.slice(value.indexOf('}') + 1)}`;
   return FINISH_HINTS.find(([pattern]) => pattern.test(text))?.[1];
 }
+
+const FINISH_NAMES: [RegExp, string][] = [
+  [/^fine\s*matte$/i, 'İnce Mat'],
+  [/^fine\s*lust(er|re)$/i, 'İnce Saten'],
+  [/^(lust(er|re)|satin)$/i, 'Saten'],
+  [/^matt?e$/i, 'Mat'],
+  [/^gloss(y)?$/i, 'Parlak'],
+];
+
+// Kullanıcıya gösterilecek yüzey adı: 'Glossy' / '{uri}Glossy' -> 'Parlak'; bilinmeyen değer olduğu gibi kalır
+export function finishDisplayName(value: string, label?: string): string {
+  const text = (label || value.slice(value.indexOf('}') + 1)).trim();
+  return FINISH_NAMES.find(([pattern]) => pattern.test(text))?.[1] ?? text;
+}

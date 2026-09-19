@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { PrintJob } from '../types';
+import { finishDisplayName } from '../utils/finish';
 
 interface QueueDrawerProps {
   isOpen: boolean;
@@ -201,7 +202,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                     <div className="job-meta-chips">
                       <span className="job-chip copies">{job.copies} Adet</span>
                       <span className="job-chip finish">
-                        {job.finish === 'Glossy' ? 'Parlak' : 'Mat'}
+                        {finishDisplayName(job.finish)}
                       </span>
                       <span className="job-chip size">6x8</span>
 
