@@ -69,7 +69,17 @@
     - Açık temada görünmeyen sabit `#fff` metinler `--text-primary`'ye çevrildi.
     - **Ortam notu:** Bu makinedeki CUPS kuyruğu başka bir DS620'nin seri numarasıyla kurulmuştu (`No matching printers found!`); `lpadmin -v gutenprint53+usb://dnp-ds620/<SERİ>` ile düzeltildi. Yazıcı değiştirilince aynı hata beklenmeli.
 
+17. **Sürüm Öncesi Düzeltme Turu (2026-09-19, ikinci tur):**
+    - **Döndürülmüş önizleme:** 90/270°'de önizleme baskıyla uyuşmuyordu (kutu dolmuyor, şerit görünüyordu). `.aspect-box` artık container query ile alandan boyutlanır, `<img>` en/boyu değiştirilmiş çizilip döndürülür; kadraj ofsetleri rasterizer'ın döndürmesinin tersiyle `object-position`'a eşlenir. Kuru baskıyla doğrulandı.
+    - **Yazıcı/iş hataları arayüzde:** `get-printers` `lpstat -l -p` ile durum mesajı + `printer-state-reasons` okur (Türkçe açıklama, hata ile durma ↔ kullanıcı duraklatması ayrımı `pausedByUser`); `get-cups-queue` `lpstat -l -o` ile iş `Status`/`Alerts` okur (`resources-are-not-ready`). Kenar çubuğu: takılı iş / hata ile durma kırmızı; CUPS'un sonraki başarılı işe kadar sakladığı eski mesaj turuncu "Son baskı denemesinde". Yanlış seri numaralı URI ile gerçek hata üretilerek doğrulandı.
+    - **Kalıcı "Basıldı":** `localStorage['cullprint_printed_counts']` (dosya yolu → kopya); klasör açılınca geri yüklenir. İptal edilen iş rozetten ve rulo sayacından düşülür.
+    - **Klavye kadraj:** Yukarı/Aşağı fotoğrafın kırpılan ekseninde kaydırır (`src/utils/crop.ts` `getCropAxis`, önizleme + rasterizer ile aynı kural).
+    - **Geçici dosyalar:** Küçük resim önbelleği `~/.cache/cullprint/thumbs` (1 GB sınır, açılışta temizlik); spool'da son 20 dosya tutulur.
+    - **Keşif:** Gutenprint, DS620'nin gerçek kalan baskı sayısını CUPS'a bildiriyor: `lpoptions -p <yazıcı>` → `marker-message='147 native prints remaining on 6x8 (A5) media'`, `marker-levels=73`. Elle tutulan rulo sayacının yerine kullanılabilir.
+
 ## Sonraki Adımlar
 - Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
-- Yazıcı hata durumlarının (kâğıt/ribbon bitti, kapak açık, "yazıcı bulunamadı") arayüze yansıtılması: şu an `lp` işi kabul edince uygulama "başarılı" gösteriyor.
-- `get-printers` içindeki DNP USB üretici kimliği `1208` yanlış; gerçek kimlik `1452` (şu an "Dai Nippon" metin eşleşmesi sayesinde çalışıyor).
+- Paketlenmiş AppImage'da `sharp`'ın çalıştığını doğrula (asarUnpack yapılandırıldı, test edilmedi).
+- Kuyruk senkronu CUPS'tan kaybolan her işi "tamamlandı" sayıyor (dışarıdan iptal/abort edilenler dahil).
+- PNG/WebP'de boyut okunmuyor (6000x4000 varsayılır) → dikey PNG yatay sanılır; `sharp().metadata()` ile düzelt.
+- Rulo sayacını yazıcının bildirdiği gerçek kalan baskı sayısıyla (`marker-message`) değiştirme önerisi.
