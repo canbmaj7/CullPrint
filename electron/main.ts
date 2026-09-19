@@ -47,6 +47,58 @@ async function generateThumbnail(filePath: string, size: number, cachePath: stri
   return buffer;
 }
 
+// Küçük resim önbelleği diskte tutulur: /tmp birçok dağıtımda RAM (tmpfs) üzerindedir
+const THUMB_CACHE_DIR =
+  process.platform === 'linux'
+    ? path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'cullprint', 'thumbs')
+    : path.join(app.getPath('userData'), 'thumb-cache');
+const THUMB_CACHE_MAX_BYTES = 1024 * 1024 * 1024; // 1 GB
+const THUMB_CACHE_TARGET_BYTES = 800 * 1024 * 1024; // temizlikten sonra hedef
+
+const SPOOL_DIR = path.join(os.tmpdir(), 'cullprint-spool');
+// Son baskı dosyaları inceleme/hata ayıklama için tutulur; CUPS dosyayı lp anında kendi dizinine kopyalar
+const SPOOL_KEEP_COUNT = 20;
+
+// Dizindeki dosyaları en eskiden başlayarak, toplam boyut hedefe inene kadar siler
+async function pruneThumbCache() {
+  try {
+    const names = await fs.promises.readdir(THUMB_CACHE_DIR);
+    const files = await Promise.all(
+      names.map(async (name) => {
+        const filePath = path.join(THUMB_CACHE_DIR, name);
+        const stat = await fs.promises.stat(filePath);
+        return { filePath, size: stat.size, mtimeMs: stat.mtimeMs };
+      })
+    );
+    let total = files.reduce((sum, f) => sum + f.size, 0);
+    if (total <= THUMB_CACHE_MAX_BYTES) return;
+    files.sort((a, b) => a.mtimeMs - b.mtimeMs);
+    for (const f of files) {
+      if (total <= THUMB_CACHE_TARGET_BYTES) break;
+      await fs.promises.unlink(f.filePath).catch(() => {});
+      total -= f.size;
+    }
+  } catch (err) {
+    console.warn('Küçük resim önbelleği temizlenemedi:', err);
+  }
+}
+
+async function pruneSpoolDir() {
+  try {
+    const names = (await fs.promises.readdir(SPOOL_DIR)).filter((n) => n.startsWith('spool_'));
+    const files = await Promise.all(
+      names.map(async (name) => {
+        const filePath = path.join(SPOOL_DIR, name);
+        return { filePath, mtimeMs: (await fs.promises.stat(filePath)).mtimeMs };
+      })
+    );
+    files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    await Promise.all(files.slice(SPOOL_KEEP_COUNT).map((f) => fs.promises.unlink(f.filePath).catch(() => {})));
+  } catch {
+    // dizin henüz yoksa sorun değil
+  }
+}
+
 function getJpegDimensions(buffer: Buffer) {
   let offset = 2;
   while (offset < buffer.length) {
@@ -163,6 +215,13 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  fs.mkdirSync(THUMB_CACHE_DIR, { recursive: true });
+  fs.mkdirSync(SPOOL_DIR, { recursive: true });
+  // Açılışta arka planda temizlik (önbellek sınırı, eski baskı dosyaları); eski /tmp önbelleğini kaldır
+  void pruneThumbCache();
+  void pruneSpoolDir();
+  fs.promises.rm(path.join(os.tmpdir(), 'cullprint-thumbs'), { recursive: true, force: true }).catch(() => {});
+
   // Register 'media://' protocol handler with direct fs reading
   protocol.handle('media', async (request) => {
     try {
@@ -238,16 +297,12 @@ app.whenReady().then(() => {
 
       const size = parseInt(sizeParam || '240', 10) || 240;
       const stat = await fs.promises.stat(filePath);
-      const cacheDir = path.join(os.tmpdir(), 'cullprint-thumbs');
-      if (!fs.existsSync(cacheDir)) {
-        fs.mkdirSync(cacheDir, { recursive: true });
-      }
 
       const hash = crypto
         .createHash('sha1')
         .update(`${filePath}:${stat.mtimeMs}:${size}`)
         .digest('hex');
-      const cachePath = path.join(cacheDir, `${hash}.jpg`);
+      const cachePath = path.join(THUMB_CACHE_DIR, `${hash}.jpg`);
 
       if (fs.existsSync(cachePath)) {
         const cachedBuffer = await fs.promises.readFile(cachePath);
@@ -612,15 +667,12 @@ ipcMain.handle('save-temp-print-file', async (_event, base64Data: string) => {
     const ext = matches[1] === 'png' ? 'png' : 'jpg';
     const buffer = Buffer.from(matches[2], 'base64');
 
-    const tmpDir = path.join(os.tmpdir(), 'cullprint-spool');
-    if (!fs.existsSync(tmpDir)) {
-      await fs.promises.mkdir(tmpDir, { recursive: true });
-    }
-
+    await fs.promises.mkdir(SPOOL_DIR, { recursive: true });
     const fileName = `spool_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
-    const filePath = path.join(tmpDir, fileName);
+    const filePath = path.join(SPOOL_DIR, fileName);
 
     await fs.promises.writeFile(filePath, buffer);
+    void pruneSpoolDir();
     return filePath;
   } catch (err) {
     console.error('Geçici baskı dosyası kaydedilemedi:', err);
