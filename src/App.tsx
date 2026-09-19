@@ -518,6 +518,10 @@ export const App: React.FC = () => {
   const [preparingCount, setPreparingCount] = useState(0);
   // Hazırlanmakta olan fotoğraflar: aynı fotoğrafın yanlışlıkla art arda iki kez gönderilmesini engeller
   const preparingPathsRef = useRef<Set<string>>(new Set());
+  // İptali süren işler: yazıcı yanıtı gelene kadar butonu kilitler (çift tıklamayı önler)
+  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
+  // Hazırlanırken iptal istenen işler: sırası gelince hiç gönderilmez, gönderildiyse anında geri çekilir
+  const cancelRequestedRef = useRef<Set<string>>(new Set());
 
   const enqueuePrint = useCallback(
     (job: PrintJob, effectiveIsLandscape: boolean, isReprint: boolean) => {
@@ -533,8 +537,22 @@ export const App: React.FC = () => {
       setPreparingCount((n) => n + 1);
       setQueue((prev) => [job, ...prev]);
 
+      const markCancelled = () => {
+        cancelRequestedRef.current.delete(job.id);
+        setQueue((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: 'cancelled' } : j)));
+        setCancellingJobIds((prev) => {
+          const next = new Set(prev);
+          next.delete(job.id);
+          return next;
+        });
+      };
+
       printChainRef.current = printChainRef.current.then(async () => {
         try {
+          if (cancelRequestedRef.current.has(job.id)) {
+            markCancelled();
+            return;
+          }
           // 1. Tam çözünürlüklü baskı raster'ı (ana süreçte sharp; yoksa canvas yedeği)
           const spoolPath = await createPrintFile({
             filePath: job.photoPath,
@@ -556,6 +574,19 @@ export const App: React.FC = () => {
             mediaOptionName,
             finishOptionName,
           });
+
+          if (printResult.success && cancelRequestedRef.current.has(job.id)) {
+            // Hazırlanırken iptal istendi: kuyruğa ulaşan işi hemen geri çek (basıldı sayılmaz)
+            const res = printResult.cupsJobId
+              ? await window.electronAPI!.cancelPrintJob(printResult.cupsJobId)
+              : { success: false, error: 'İş numarası alınamadı' };
+            if (res.success) {
+              markCancelled();
+              return;
+            }
+            cancelRequestedRef.current.delete(job.id);
+            setLastPrintStatus({ success: false, message: `${job.photoName} iptal edilemedi: ${res.error || 'Bilinmeyen hata'}` });
+          }
 
           if (printResult.success) {
             setRollPrintsCount((prev) => prev + job.copies);
@@ -655,16 +686,15 @@ export const App: React.FC = () => {
   );
 
   // 4.6. Kuyruktaki İşi İptal Et
-  // İptali süren işler: CUPS yanıtı gelene kadar butonu kilitler (çift tıklamayı önler)
-  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
 
   const handleCancelJob = useCallback(async (job: PrintJob) => {
     if (!window.electronAPI) return;
     if (!job.cupsJobId) {
-      setLastPrintStatus({
-        success: false,
-        message: 'Bu iş henüz hazırlanıyor; yazıcı kuyruğuna ulaşınca iptal edebilirsiniz.',
-      });
+      // Henüz hazırlanıyor: sırası gelince gönderilmez (ya da gönderildiği anda geri çekilir)
+      if (job.status === 'printing') {
+        cancelRequestedRef.current.add(job.id);
+        setCancellingJobIds((prev) => new Set(prev).add(job.id));
+      }
       return;
     }
 
@@ -701,6 +731,12 @@ export const App: React.FC = () => {
       });
     }
   }, []);
+
+  const handleCancelAll = useCallback(() => {
+    queueRef.current
+      .filter((j) => j.status === 'printing' || j.status === 'queued')
+      .forEach((j) => void handleCancelJob(j));
+  }, [handleCancelJob]);
 
   const handleClearHistory = useCallback(() => {
     setQueue((prev) => prev.filter((j) => j.status === 'printing' || j.status === 'queued'));
@@ -936,6 +972,7 @@ export const App: React.FC = () => {
         cancellingJobIds={cancellingJobIds}
         onReprintJob={handleReprintJob}
         onClearHistory={handleClearHistory}
+        onCancelAll={handleCancelAll}
         rollPrintsCount={rollPrintsCount}
         onResetRoll={handleResetRoll}
         rollCapacity={rollCapacity}

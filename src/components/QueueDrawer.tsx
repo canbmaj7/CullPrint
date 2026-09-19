@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   X,
   Printer,
@@ -23,6 +23,7 @@ interface QueueDrawerProps {
   cancellingJobIds: Set<string>;
   onReprintJob: (job: PrintJob) => void;
   onClearHistory: () => void;
+  onCancelAll: () => void;
   rollPrintsCount: number;
   onResetRoll: () => void;
   rollCapacity: number; // elle sayaç için rulonun baskı kapasitesi (kâğıt boyutu başına)
@@ -41,6 +42,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   cancellingJobIds,
   onReprintJob,
   onClearHistory,
+  onCancelAll,
   rollPrintsCount,
   onResetRoll,
   rollCapacity,
@@ -50,6 +52,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   printerMarkerLevel,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'history'>('all');
+  // "Tümünü iptal et" iki adımlıdır: ilk tıklama onay ister, 3 sn içinde ikinci tıklama iptal eder
+  const [confirmCancelAll, setConfirmCancelAll] = useState(false);
+  useEffect(() => {
+    if (!confirmCancelAll) return;
+    const timer = setTimeout(() => setConfirmCancelAll(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirmCancelAll]);
 
   if (!isOpen) return null;
 
@@ -188,12 +197,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           ) : (
             displayedJobs.map((job) => {
               const isBusy = job.status === 'printing' || job.status === 'queued';
-              const mediaUrl = `media://${encodeURI(job.photoPath)}`;
+              // Önbellekli küçük resim: tam çözünürlüklü orijinal her çizimde çözülüp çekmeceyi kasıyordu
+              const thumbUrl = `media-thumb://thumb?path=${encodeURIComponent(job.photoPath)}&size=240`;
 
               return (
                 <div key={job.id} className={`queue-job-card ${job.status}`}>
                   <div className="job-thumbnail-wrapper">
-                    <img src={mediaUrl} alt={job.photoName} className="job-thumbnail" />
+                    <img src={thumbUrl} alt={job.photoName} className="job-thumbnail" decoding="async" loading="lazy" />
                     {job.status === 'printing' && (
                       <div className="job-printing-overlay" title="Yazdırılıyor...">
                         <RefreshCw size={16} className="animate-spin" />
@@ -291,13 +301,36 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           )}
         </div>
 
-        {/* Alt Footer - Geçmişi Temizle */}
-        {historyJobs.length > 0 && (
+        {/* Alt Footer - Tümünü İptal Et / Geçmişi Temizle */}
+        {(activeJobs.length > 0 || historyJobs.length > 0) && (
           <div className="queue-footer">
-            <button className="clear-history-btn" onClick={onClearHistory}>
-              <Trash2 size={13} />
-              <span>Geçmişi Temizle</span>
-            </button>
+            {activeJobs.length > 0 && (
+              <button
+                className={`clear-history-btn cancel-all-btn ${confirmCancelAll ? 'confirm' : ''}`}
+                onClick={() => {
+                  if (confirmCancelAll) {
+                    setConfirmCancelAll(false);
+                    onCancelAll();
+                  } else {
+                    setConfirmCancelAll(true);
+                  }
+                }}
+                title="Sıradaki ve hazırlanan tüm baskıları iptal et"
+              >
+                <Ban size={13} />
+                <span>
+                  {confirmCancelAll
+                    ? `Emin misiniz? ${activeJobs.length} iş iptal edilecek`
+                    : `Tümünü İptal Et (${activeJobs.length})`}
+                </span>
+              </button>
+            )}
+            {historyJobs.length > 0 && (
+              <button className="clear-history-btn" onClick={onClearHistory}>
+                <Trash2 size={13} />
+                <span>Geçmişi Temizle</span>
+              </button>
+            )}
           </div>
         )}
       </aside>

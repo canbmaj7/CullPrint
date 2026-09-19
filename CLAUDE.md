@@ -4,7 +4,7 @@ Bu dosya sadece Claude'un otomatik yüklediği, projeye özel kritik kurallar ve
 
 ## Kesinlikle uyulması gereken kurallar
 
-- **Baskı raster'ı her zaman tam çözünürlüklü orijinal dosyadan üretilir.** Asıl yol ana süreçte sharp'tır (`electron/raster.ts`, `render-print-raster` IPC, dosya yolundan okur); sharp yoksa `src/utils/rasterizer.ts` canvas yedeği `media://` kullanır. `media-thumb://` sadece `Filmstrip.tsx` (240px) ve `CropViewer.tsx` (1600px) önizlemeleri içindir — baskıda asla kullanılmaz.
+- **Baskı raster'ı her zaman tam çözünürlüklü orijinal dosyadan üretilir.** Asıl yol ana süreçte sharp'tır (`electron/raster.ts`, `render-print-raster` IPC, dosya yolundan okur); sharp yoksa `src/utils/rasterizer.ts` canvas yedeği `media://` kullanır. `media-thumb://` sadece önizlemeler içindir: `Filmstrip.tsx` ve `QueueDrawer.tsx` (240px), `CropViewer.tsx` (1600px). Arayüzde `media://` (26 MP orijinal) ile küçük resim gösterme, çözümlemesi arayüzü kilitler — baskıda asla kullanılmaz.
 - **Kırpma hesabı tek yerdedir:** `src/utils/crop.ts` (`computeCropRect`, `getTargetRatio`, `getCropAxis`). Önizleme çerçevesi, kadraj ekseni, canvas ve sharp yolu hep bunu ve seçili kâğıdın oranını kullanır; sabit 4:3 yazma.
 - **Baskı arayüzü bekletmez:** `enqueuePrint` (App.tsx) işleri `printChainRef` zincirinde sırayla hazırlayıp gönderir; buton/Space kilitlenmez. Ayarlar basıldığı anda iş nesnesine sabitlenir.
 - **Yazıcıyı DNP DS620'ye özel hardcode etme** (arayüz metinleri dahil; README'de yalnızca "DS620 ile test edildi" notu var). DNP varsayılan/öncelikli davranış olarak korunur ama yeni kod herhangi bir CUPS/Windows yazıcısıyla ve kâğıt boyutuyla çalışmalı.
