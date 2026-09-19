@@ -95,7 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           ) : !capabilities || capabilities.options.length === 0 ? (
             <div className="settings-empty">
-              <p>Yazıcı seçenekleri bulunamadı veya CUPS yanıt vermedi.</p>
+              <p>Yazıcı seçenekleri bulunamadı veya yazıcı sistemi yanıt vermedi.</p>
               <div className="settings-fallback-field">
                 <label className="settings-fallback-label">
                   Medya Boyutu Kodu
@@ -252,7 +252,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             className="clear-history-btn"
             onClick={handleResetDefaults}
             disabled={!capabilities || isLoadingCapabilities}
-            title="CUPS tarafından bildirilen varsayılan değerlere dön"
+            title="Yazıcı sürücüsünün bildirdiği varsayılan değerlere dön"
           >
             <RotateCw size={13} />
             <span>Varsayılanlara Dön</span>

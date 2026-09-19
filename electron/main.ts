@@ -5,6 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import exifr from 'exifr';
 import { printBackend } from './print';
+import { renderPrintRasterFile, type RasterRequest } from './raster';
 import type { PrintRequest } from './print/types';
 
 // sharp (libvips) opsiyonel: yüklenemezse platformun yerel küçük resim API'sine, o da yoksa orijinale düşülür
@@ -202,7 +203,9 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     backgroundColor: '#0d0f12',
-    title: 'CullPrint - DNP DS620 Fast Print',
+    title: 'CullPrint',
+    // Pencere/görev çubuğu ikonu (Windows ve macOS paket ikonunu kullanır; Linux'ta gerekli)
+    icon: path.join(__dirname, process.env.VITE_DEV_SERVER_URL ? '../public/icon.png' : '../dist/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -485,6 +488,25 @@ ipcMain.handle('save-temp-print-file', async (_event, base64Data: string) => {
     throw err;
   }
 });
+
+// 5b. Baskı raster'ı ana süreçte sharp ile: arayüz iş parçacığı beklemez, orijinal dosyadan okunur.
+// sharp yoksa null döner, renderer canvas yoluna düşer (src/utils/rasterizer.ts).
+ipcMain.handle(
+  'render-print-raster',
+  async (
+    _event,
+    req: RasterRequest
+  ) => {
+    const sharp = await loadSharp();
+    if (!sharp) return null;
+
+    await fs.promises.mkdir(SPOOL_DIR, { recursive: true });
+    const filePath = path.join(SPOOL_DIR, `spool_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`);
+    await renderPrintRasterFile(sharp, req, filePath);
+    void pruneSpoolDir();
+    return filePath;
+  }
+);
 
 ipcMain.handle('execute-print', (_event, request: PrintRequest) => printBackend.executePrint(request));
 ipcMain.handle('cancel-print-job', (_event, jobId: string) => printBackend.cancelJob(jobId));

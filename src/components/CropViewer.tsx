@@ -1,10 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw } from 'lucide-react';
 import { PhotoItem } from '../types';
-import { getCropAxis } from '../utils/crop';
+import { getCropAxis, getTargetRatio } from '../utils/crop';
+import { formatPaperSize } from '../utils/media';
 
 interface CropViewerProps {
   photo: PhotoItem | null;
+  mediaSize: string; // seçili kâğıt: çerçeve oranı ve etiket buradan
   onRotate: () => void;
   onAdjustCrop: (deltaX: number, deltaY: number) => void;
   onResetCrop: () => void;
@@ -12,6 +14,7 @@ interface CropViewerProps {
 
 export const CropViewer: React.FC<CropViewerProps> = ({
   photo,
+  mediaSize,
   onRotate,
   onAdjustCrop,
   onResetCrop,
@@ -50,12 +53,12 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   // Eğer 90 derece döndürüldüyse görselin etkin yatay/dikey durumu tersine döner
   const effectiveIsLandscape = isRotated90 ? !photo.isLandscape : (photo.isLandscape ?? true);
 
-  // 6x8 inç kağıt oranı 4:3 (veya dikeyde 3:4)
-  const targetRatio = effectiveIsLandscape ? 4 / 3 : 3 / 4;
+  // Seçili kâğıdın oranı (6x8 → 4:3, 4x6 → 3:2); baskı raster'ı da aynı oranla kırpılır
+  const targetRatio = getTargetRatio(effectiveIsLandscape, mediaSize);
 
   // Döndürme sonrası görselin oranı: kağıttan genişse yanlardan, uzunsa üst/alttan kırpılır
-  // (rasterizer.ts ile aynı kural)
-  const cropAxis = getCropAxis(photo);
+  // (computeCropRect ile aynı kural)
+  const cropAxis = getCropAxis(photo, mediaSize);
 
   // Döndürülmüş karede tanımlı kadraj ofsetlerini, döndürülmemiş <img> üzerindeki
   // object-position'a çevir (rasterizer'daki canvas döndürmesinin tersi)
@@ -109,7 +112,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
         <div className="photo-meta-badge">
           <span className="file-name">{photo.name}</span>
           <span className="orientation-chip">
-            {effectiveIsLandscape ? 'Yatay 6x8 (15x20)' : 'Dikey 6x8 (15x20)'}
+            {effectiveIsLandscape ? 'Yatay' : 'Dikey'} {formatPaperSize(mediaSize)}
           </span>
           {photo.width && photo.height && (
             <span className="dim-chip">{photo.width} × {photo.height}</span>

@@ -71,6 +71,15 @@ export interface IElectronAPI {
   getPrinters: () => Promise<PrinterInfo[]>;
   getPrinterOptions: (printerName: string) => Promise<PrinterCapabilities & { raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;
+  // Baskı raster'ını ana süreçte sharp ile üretir; sharp yoksa null (canvas yedeği kullanılır)
+  renderPrintRaster: (params: {
+    filePath: string;
+    targetWidth: number;
+    targetHeight: number;
+    cropOffsetX: number;
+    cropOffsetY: number;
+    userRotation: number;
+  }) => Promise<string | null>;
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }>;
   cancelPrintJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
   getCupsQueue: () => Promise<CupsJobInfo[]>;

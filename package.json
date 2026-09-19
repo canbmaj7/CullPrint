@@ -1,7 +1,7 @@
 {
   "name": "cullprint",
   "version": "1.0.0",
-  "description": "Fast Photo Culling & Direct Print for DNP DS620",
+  "description": "Fast photo culling and direct printing station (tested with DNP DS620)",
   "main": "dist-electron/main.js",
   "author": {
     "name": "canbmaj7",

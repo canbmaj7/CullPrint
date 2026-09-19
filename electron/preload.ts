@@ -64,6 +64,15 @@ export interface CupsJobInfo {
   problem?: string;
 }
 
+export interface RenderRasterParams {
+  filePath: string;
+  targetWidth: number;
+  targetHeight: number;
+  cropOffsetX: number;
+  cropOffsetY: number;
+  userRotation: number;
+}
+
 contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
   selectFiles: (): Promise<FileItem[]> => ipcRenderer.invoke('select-files'),
@@ -72,6 +81,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPrinterOptions: (printerName: string): Promise<PrinterCapabilities & { raw: string }> =>
     ipcRenderer.invoke('get-printer-options', printerName),
   saveTempPrintFile: (base64Data: string): Promise<string> => ipcRenderer.invoke('save-temp-print-file', base64Data),
+  renderPrintRaster: (params: RenderRasterParams): Promise<string | null> =>
+    ipcRenderer.invoke('render-print-raster', params),
   executePrint: (params: PrintJobParams): Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }> =>
     ipcRenderer.invoke('execute-print', params),
   cancelPrintJob: (jobId: string): Promise<{ success: boolean; error?: string }> =>

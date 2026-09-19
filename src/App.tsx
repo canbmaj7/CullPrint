@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings } from './types';
-import { generatePrintRaster } from './utils/rasterizer';
+import { createPrintFile } from './utils/rasterizer';
 import { getCropAxis } from './utils/crop';
 import { finishDisplayName } from './utils/finish';
+import { defaultRollCapacity, formatPaperSize } from './utils/media';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
@@ -45,7 +46,6 @@ export const App: React.FC = () => {
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const dragCounterRef = useRef<number>(0);
-  const nextTargetPathRef = useRef<string | null>(null);
 
   // Tema Yönetimi (Dark / Light / Neutral)
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -97,7 +97,6 @@ export const App: React.FC = () => {
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [finish, setFinish] = useState<string>('Glossy');
   const [copies, setCopies] = useState<number>(1);
-  const [isPrinting, setIsPrinting] = useState<boolean>(false);
   const [lastPrintStatus, setLastPrintStatus] = useState<{ success: boolean; message: string } | null>(null);
 
   const [printerCapabilities, setPrinterCapabilities] = useState<PrinterCapabilities | null>(null);
@@ -230,7 +229,7 @@ export const App: React.FC = () => {
                   return { ...job, status: 'cancelled', errorMessage: undefined };
                 }
                 if (outcome.state === 'aborted') {
-                  return { ...job, status: 'failed', errorMessage: outcome.message || 'Baskı CUPS tarafından durduruldu' };
+                  return { ...job, status: 'failed', errorMessage: outcome.message || 'Baskı yazıcı sistemi tarafından durduruldu' };
                 }
                 // 'completed' ya da ipptool yoksa 'unknown': eskisi gibi tamamlandı say
                 return { ...job, status: 'completed', errorMessage: undefined };
@@ -431,19 +430,25 @@ export const App: React.FC = () => {
     return photos;
   }, [photos, filterMode]);
 
-  // Baskı sonrası seçimi hedef fotoğrafta tut (filtre listeyi değiştirse bile)
+  // Liste değişince (ör. "Basılmayan" filtresinde basılan fotoğraf çıkınca) seçim görüntülenen fotoğrafta kalır;
+  // o fotoğraf listeden çıktıysa aynı sıradaki (liste sonuysa son) fotoğraf seçilir.
+  const viewedPathRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!nextTargetPathRef.current) return;
-    const targetPath = nextTargetPathRef.current;
-    nextTargetPathRef.current = null;
-    const newIdx = filteredPhotos.findIndex((p) => p.path === targetPath);
-    if (newIdx !== -1) {
-      setSelectedIndex(newIdx);
+    const viewedPath = viewedPathRef.current;
+    const idx = viewedPath ? filteredPhotos.findIndex((p) => p.path === viewedPath) : -1;
+    if (idx !== -1) {
+      setSelectedIndex(idx);
+    } else if (filteredPhotos.length > 0) {
+      setSelectedIndex((prev) => Math.min(prev, filteredPhotos.length - 1));
     }
   }, [filteredPhotos]);
 
   // Seçili aktif fotoğraf
   const currentPhoto = filteredPhotos[selectedIndex] || null;
+  // Yukarıdaki efektten sonra çalışır: liste değişiminde önce eski görüntülenen fotoğraf okunur
+  useEffect(() => {
+    viewedPathRef.current = currentPhoto?.path ?? null;
+  }, [currentPhoto?.path]);
 
   // Komşu fotoğrafların 1600px önizlemesini önden çöz: ok tuşuyla geçiş anında olsun
   useEffect(() => {
@@ -508,237 +513,145 @@ export const App: React.FC = () => {
     );
 
   // 4. Yazdırma (Baskı Motoru)
-  const handlePrint = useCallback(async () => {
-    if (!currentPhoto || !window.electronAPI || isPrinting) return;
+  // Baskılar arka planda sırayla hazırlanıp gönderilir: arayüz beklemez, kullanıcı gezinip basmaya devam eder.
+  const printChainRef = useRef<Promise<void>>(Promise.resolve());
+  const [preparingCount, setPreparingCount] = useState(0);
+  // Hazırlanmakta olan fotoğraflar: aynı fotoğrafın yanlışlıkla art arda iki kez gönderilmesini engeller
+  const preparingPathsRef = useRef<Set<string>>(new Set());
 
-    // Baskıdan sonra aynı fotoğrafta kalınır. Yalnızca "Basılmayan" filtresinde basılan fotoğraf
-    // listeden çıkacağı için komşusu seçilir (bir sonraki, yoksa bir önceki).
-    const targetPhoto =
-      filterMode === 'unprinted'
-        ? (filteredPhotos[selectedIndex + 1] ?? filteredPhotos[selectedIndex - 1] ?? null)
-        : currentPhoto;
-    nextTargetPathRef.current = targetPhoto ? targetPhoto.path : null;
+  const enqueuePrint = useCallback(
+    (job: PrintJob, effectiveIsLandscape: boolean, isReprint: boolean) => {
+      if (!window.electronAPI || !selectedPrinter || preparingPathsRef.current.has(job.photoPath)) return;
 
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    try {
-      setIsPrinting(true);
-      setLastPrintStatus(null);
+      // Ayarlar basıldığı anda sabitlenir; kullanıcı sonra başka yazıcı/kâğıt seçse de bu iş etkilenmez
+      const printerName = selectedPrinter;
+      const mediaOptionName = printerCapabilities?.mediaOptionName || undefined;
+      const finishOptionName = printerCapabilities?.finishOptionName || undefined;
+      const summary = `${job.copies} kopya, ${finishName(job.finish)}`;
 
-      // Etkin yönü hesapla
-      const isRotated90 = currentPhoto.userRotation === 90 || currentPhoto.userRotation === 270;
-      const effectiveIsLandscape = isRotated90
-        ? !currentPhoto.isLandscape
-        : (currentPhoto.isLandscape ?? true);
+      preparingPathsRef.current.add(job.photoPath);
+      setPreparingCount((n) => n + 1);
+      setQueue((prev) => [job, ...prev]);
 
-      // 1. Tam çözünürlüklü raster üret
-      // NEVER use media-thumb:// here — print raster must be generated from the full original file
-      const mediaUrl = `media://${encodeURI(currentPhoto.path)}`;
-      const effectiveFinish = printerSettings.finishValue || finish;
-      const base64Raster = await generatePrintRaster({
-        imageUrl: mediaUrl,
-        isLandscape: effectiveIsLandscape,
-        cropOffsetX: currentPhoto.cropOffsetX || 0,
-        cropOffsetY: currentPhoto.cropOffsetY || 0,
-        userRotation: currentPhoto.userRotation || 0,
-        mediaSizeToken: printerSettings.mediaSize,
-        dpi: 300,
+      printChainRef.current = printChainRef.current.then(async () => {
+        try {
+          // 1. Tam çözünürlüklü baskı raster'ı (ana süreçte sharp; yoksa canvas yedeği)
+          const spoolPath = await createPrintFile({
+            filePath: job.photoPath,
+            isLandscape: effectiveIsLandscape,
+            cropOffsetX: job.cropOffsetX,
+            cropOffsetY: job.cropOffsetY,
+            userRotation: job.userRotation,
+            mediaSizeToken: job.mediaSize,
+            dpi: 300,
+          });
+
+          // 2. Yazıcı kuyruğuna gönder
+          const printResult = await window.electronAPI!.executePrint({
+            filePath: spoolPath,
+            printerName,
+            copies: job.copies,
+            mediaSize: job.mediaSize,
+            finish: job.finish,
+            mediaOptionName,
+            finishOptionName,
+          });
+
+          if (printResult.success) {
+            setRollPrintsCount((prev) => prev + job.copies);
+            setQueue((prev) =>
+              prev.map((j) =>
+                j.id === job.id
+                  ? { ...j, cupsJobId: printResult.cupsJobId, status: printResult.cupsJobId ? 'queued' : 'completed' }
+                  : j
+              )
+            );
+            // Basıldı rozeti (kalıcı kayıttan)
+            const printCount = recordPrintedCount(job.photoPath, job.copies);
+            setPhotos((prev) =>
+              prev.map((p) => (p.path === job.photoPath ? { ...p, printed: true, printCount } : p))
+            );
+            setLastPrintStatus({
+              success: true,
+              message: `${job.photoName} ${isReprint ? 'tekrar ' : ''}kuyruğa gönderildi (${summary}).`,
+            });
+          } else {
+            setQueue((prev) =>
+              prev.map((j) => (j.id === job.id ? { ...j, status: 'failed', errorMessage: printResult.error } : j))
+            );
+            setLastPrintStatus({
+              success: false,
+              message: `${job.photoName}: yazdırma hatası: ${printResult.error || 'Bilinmeyen hata'}`,
+            });
+          }
+        } catch (err) {
+          console.error('Yazdırma işlemi başarısız:', err);
+          setQueue((prev) =>
+            prev.map((j) =>
+              j.id === job.id ? { ...j, status: 'failed', errorMessage: 'Baskı hazırlığı sırasında hata oluştu' } : j
+            )
+          );
+          setLastPrintStatus({ success: false, message: `${job.photoName}: baskı hazırlığı sırasında hata oluştu.` });
+        } finally {
+          preparingPathsRef.current.delete(job.photoPath);
+          setPreparingCount((n) => n - 1);
+        }
       });
+    },
+    // finishName printerCapabilities'e bağlı
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPrinter, printerCapabilities]
+  );
 
-      // Kuyruğa 'printing' olarak ekle
-      const newJob: PrintJob = {
-        id: jobId,
+  const handlePrint = useCallback(() => {
+    if (!currentPhoto) return;
+    const isRotated90 = currentPhoto.userRotation === 90 || currentPhoto.userRotation === 270;
+    const effectiveIsLandscape = isRotated90 ? !currentPhoto.isLandscape : (currentPhoto.isLandscape ?? true);
+    setLastPrintStatus(null);
+    enqueuePrint(
+      {
+        id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         photoName: currentPhoto.name,
         photoPath: currentPhoto.path,
         copies,
-        finish: effectiveFinish,
+        finish: printerSettings.finishValue || finish,
         mediaSize: printerSettings.mediaSize,
         timestamp: Date.now(),
         status: 'printing',
         cropOffsetX: currentPhoto.cropOffsetX || 0,
         cropOffsetY: currentPhoto.cropOffsetY || 0,
         userRotation: currentPhoto.userRotation || 0,
-      };
-      setQueue((prev) => [newJob, ...prev]);
-
-      // 2. Geçici spool dosyasına kaydet
-      const spoolPath = await window.electronAPI.saveTempPrintFile(base64Raster);
-
-      // 3. CUPS üzerinden yazıcıya gönder
-      const printResult = await window.electronAPI.executePrint({
-        filePath: spoolPath,
-        printerName: selectedPrinter,
-        copies,
-        mediaSize: printerSettings.mediaSize,
-        finish: effectiveFinish,
-        mediaOptionName: printerCapabilities?.mediaOptionName || undefined,
-        finishOptionName: printerCapabilities?.finishOptionName || undefined,
-      });
-
-      if (printResult.success) {
-        setRollPrintsCount((prev) => prev + copies);
-        setQueue((prev) =>
-          prev.map((j) =>
-            j.id === jobId
-              ? {
-                  ...j,
-                  cupsJobId: printResult.cupsJobId,
-                  status: printResult.cupsJobId ? 'queued' : 'completed',
-                }
-              : j
-          )
-        );
-
-        // Durumu güncelle: Basıldı rozeti (kalıcı kayıttan)
-        const printCount = recordPrintedCount(currentPhoto.path, copies);
-        setPhotos((prev) =>
-          prev.map((p) =>
-            p.path === currentPhoto.path ? { ...p, printed: true, printCount } : p
-          )
-        );
-
-        setLastPrintStatus({
-          success: true,
-          message: `${currentPhoto.name} kuyruğa gönderildi (${copies} kopya, ${finishName(effectiveFinish)}).`,
-        });
-      } else {
-        nextTargetPathRef.current = null;
-        setQueue((prev) =>
-          prev.map((j) =>
-            j.id === jobId
-              ? { ...j, status: 'failed', errorMessage: printResult.error }
-              : j
-          )
-        );
-        setLastPrintStatus({
-          success: false,
-          message: `Yazdırma hatası: ${printResult.error || 'Bilinmeyen hata'}`,
-        });
-      }
-    } catch (err) {
-      nextTargetPathRef.current = null;
-      console.error('Yazdırma işlemi başarısız:', err);
-      setQueue((prev) =>
-        prev.map((j) =>
-          j.id === jobId
-            ? { ...j, status: 'failed', errorMessage: 'Baskı hazırlığı sırasında hata oluştu' }
-            : j
-        )
-      );
-      setLastPrintStatus({
-        success: false,
-        message: 'Baskı hazırlığı sırasında hata oluştu.',
-      });
-    } finally {
-      setIsPrinting(false);
-    }
-  }, [
-    currentPhoto,
-    isPrinting,
-    selectedPrinter,
-    copies,
-    finish,
-    printerSettings,
-    printerCapabilities,
-    selectedIndex,
-    filteredPhotos,
-    filterMode,
-  ]);
+      },
+      effectiveIsLandscape,
+      false
+    );
+  }, [currentPhoto, copies, finish, printerSettings, enqueuePrint]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
   const handleReprintJob = useCallback(
-    async (job: PrintJob) => {
-      if (!window.electronAPI || isPrinting) return;
-
-      const newJobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      try {
-        setIsPrinting(true);
-        setLastPrintStatus(null);
-
-        const targetPhoto = photos.find((p) => p.path === job.photoPath);
-        const isRotated90 = job.userRotation === 90 || job.userRotation === 270;
-        const effectiveIsLandscape = isRotated90
-          ? !(targetPhoto?.isLandscape ?? true)
-          : (targetPhoto?.isLandscape ?? true);
-
-        // NEVER use media-thumb:// here — print raster must be generated from the full original file
-        const mediaUrl = `media://${encodeURI(job.photoPath)}`;
-        const effectiveMediaSize = job.mediaSize || printerSettings.mediaSize;
-        const effectiveFinish = job.finish || printerSettings.finishValue || finish;
-
-        const base64Raster = await generatePrintRaster({
-          imageUrl: mediaUrl,
-          isLandscape: effectiveIsLandscape,
-          cropOffsetX: job.cropOffsetX,
-          cropOffsetY: job.cropOffsetY,
-          userRotation: job.userRotation,
-          mediaSizeToken: effectiveMediaSize,
-          dpi: 300,
-        });
-
-        const newJob: PrintJob = {
+    (job: PrintJob) => {
+      const targetPhoto = photos.find((p) => p.path === job.photoPath);
+      const isRotated90 = job.userRotation === 90 || job.userRotation === 270;
+      const effectiveIsLandscape = isRotated90
+        ? !(targetPhoto?.isLandscape ?? true)
+        : (targetPhoto?.isLandscape ?? true);
+      setLastPrintStatus(null);
+      enqueuePrint(
+        {
           ...job,
-          id: newJobId,
+          id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          finish: job.finish || printerSettings.finishValue || finish,
+          mediaSize: job.mediaSize || printerSettings.mediaSize,
           timestamp: Date.now(),
           status: 'printing',
           cupsJobId: undefined,
           errorMessage: undefined,
-        };
-        setQueue((prev) => [newJob, ...prev]);
-
-        const spoolPath = await window.electronAPI.saveTempPrintFile(base64Raster);
-        const printResult = await window.electronAPI.executePrint({
-          filePath: spoolPath,
-          printerName: selectedPrinter,
-          copies: job.copies,
-          mediaSize: effectiveMediaSize,
-          finish: effectiveFinish,
-          mediaOptionName: printerCapabilities?.mediaOptionName || undefined,
-          finishOptionName: printerCapabilities?.finishOptionName || undefined,
-        });
-
-        if (printResult.success) {
-          setRollPrintsCount((prev) => prev + job.copies);
-          setQueue((prev) =>
-            prev.map((j) =>
-              j.id === newJobId
-                ? {
-                    ...j,
-                    cupsJobId: printResult.cupsJobId,
-                    status: printResult.cupsJobId ? 'queued' : 'completed',
-                  }
-                : j
-            )
-          );
-          const printCount = recordPrintedCount(job.photoPath, job.copies);
-          setPhotos((prev) =>
-            prev.map((p) =>
-              p.path === job.photoPath ? { ...p, printed: true, printCount } : p
-            )
-          );
-          setLastPrintStatus({
-            success: true,
-            message: `${job.photoName} tekrar kuyruğa gönderildi (${job.copies} kopya, ${finishName(effectiveFinish)}).`,
-          });
-        } else {
-          setQueue((prev) =>
-            prev.map((j) =>
-              j.id === newJobId
-                ? { ...j, status: 'failed', errorMessage: printResult.error }
-                : j
-            )
-          );
-          setLastPrintStatus({
-            success: false,
-            message: `Tekrar basma hatası: ${printResult.error || 'Bilinmeyen hata'}`,
-          });
-        }
-      } catch (err) {
-        console.error('Tekrar basma hatası:', err);
-      } finally {
-        setIsPrinting(false);
-      }
+        },
+        effectiveIsLandscape,
+        true
+      );
     },
-    [isPrinting, photos, selectedPrinter, printerSettings, printerCapabilities, finish]
+    [photos, printerSettings, finish, enqueuePrint]
   );
 
   // 4.6. Kuyruktaki İşi İptal Et
@@ -750,7 +663,7 @@ export const App: React.FC = () => {
     if (!job.cupsJobId) {
       setLastPrintStatus({
         success: false,
-        message: 'Bu iş henüz CUPS kuyruğuna ulaşmadı, birkaç saniye sonra tekrar deneyin.',
+        message: 'Bu iş henüz hazırlanıyor; yazıcı kuyruğuna ulaşınca iptal edebilirsiniz.',
       });
       return;
     }
@@ -797,6 +710,22 @@ export const App: React.FC = () => {
     setRollPrintsCount(0);
   }, []);
 
+  // Elle rulo sayacının kapasitesi kâğıt boyutu başına saklanır (varsayılan: 6x8 → 200, 4x6 → 400)
+  const rollCapacityKey = `cullprint_roll_capacity_${printerSettings.mediaSize.replace(/\|.*$/, '')}`;
+  const [rollCapacity, setRollCapacity] = useState<number>(200);
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(rollCapacityKey));
+    setRollCapacity(saved > 0 ? saved : defaultRollCapacity(printerSettings.mediaSize));
+  }, [rollCapacityKey, printerSettings.mediaSize]);
+  const handleChangeRollCapacity = useCallback(
+    (capacity: number) => {
+      if (!Number.isFinite(capacity) || capacity < 1) return;
+      setRollCapacity(capacity);
+      localStorage.setItem(rollCapacityKey, String(capacity));
+    },
+    [rollCapacityKey]
+  );
+
   // 5. Global Klavye Kısayolları
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -817,7 +746,8 @@ export const App: React.FC = () => {
         case ' ':
         case 'Enter':
           e.preventDefault();
-          handlePrint();
+          // Basılı tutulan tuşun otomatik tekrarı yeni baskı başlatmasın
+          if (!e.repeat) handlePrint();
           break;
 
         case 'ArrowLeft':
@@ -837,7 +767,7 @@ export const App: React.FC = () => {
           e.preventDefault();
           if (!currentPhoto) break;
           const step = e.key === 'ArrowUp' ? -5 : 5; // Yukarı: kafa kurtar / sola kaydır
-          if (getCropAxis(currentPhoto) === 'x') {
+          if (getCropAxis(currentPhoto, printerSettings.mediaSize) === 'x') {
             handleAdjustCrop(step, 0);
           } else {
             handleAdjustCrop(0, step);
@@ -941,8 +871,6 @@ export const App: React.FC = () => {
         theme={theme}
         queueCount={queue.length}
         activeJobCount={activeJobCount}
-        activePrinterName={selectedPrinter || null}
-        activePrinterIsDNP={Boolean(printers.find((p) => p.name === selectedPrinter)?.isDNP)}
         onSelectFolder={handleSelectFolder}
         onSelectFiles={handleSelectFiles}
         onToggleTheme={toggleTheme}
@@ -959,6 +887,7 @@ export const App: React.FC = () => {
         <main className="stage-area">
           <CropViewer
             photo={currentPhoto}
+            mediaSize={printerSettings.mediaSize}
             onRotate={handleRotate}
             onAdjustCrop={handleAdjustCrop}
             onResetCrop={handleResetCrop}
@@ -976,7 +905,7 @@ export const App: React.FC = () => {
           }}
           copies={copies}
           onChangeCopies={setCopies}
-          isPrinting={isPrinting}
+          preparingCount={preparingCount}
           onPrint={handlePrint}
           hasPhoto={Boolean(currentPhoto)}
           lastPrintStatus={lastPrintStatus}
@@ -1009,7 +938,9 @@ export const App: React.FC = () => {
         onClearHistory={handleClearHistory}
         rollPrintsCount={rollPrintsCount}
         onResetRoll={handleResetRoll}
-        rollCapacity={200}
+        rollCapacity={rollCapacity}
+        onChangeRollCapacity={handleChangeRollCapacity}
+        paperLabel={formatPaperSize(printerSettings.mediaSize)}
         printerMediaRemaining={printers.find((p) => p.name === selectedPrinter)?.mediaRemaining}
         printerMarkerLevel={printers.find((p) => p.name === selectedPrinter)?.markerLevel}
       />

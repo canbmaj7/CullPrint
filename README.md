@@ -1,33 +1,38 @@
-# CullPrint 🖨️
+# CullPrint
 
-> **Fast Photo Culling & Direct Print Station for DNP DS620**  
-> Düğün ve etkinlik fotoğrafçıları için sahada tek tuşla, sıfır hatayla seri fotoğraf baskı istasyonu.
+<img src="build/icon.png" alt="CullPrint ikonu" width="96" align="right" />
+
+> **Hızlı fotoğraf seçme ve doğrudan baskı istasyonu**
+> Düğün ve etkinlik fotoğrafçıları için sahada klavyeden, tek tuşla, seri fotoğraf baskısı.
+
+**Test edilen yazıcı:** DNP DS620 (Linux'ta CUPS + Gutenprint ile fiziksel olarak test edildi). Uygulama yazıcıya özel değildir: Linux/macOS'ta herhangi bir CUPS yazıcısıyla, Windows'ta herhangi bir Windows yazıcısıyla çalışır; kâğıt boyutu ve yüzey (parlak/mat) seçenekleri yazıcı sürücüsünden okunur. DNP yazıcılar bulunduğunda varsayılan olarak seçilir. Windows desteği yenidir ve henüz gerçek yazıcıyla doğrulanmamıştır.
 
 ---
 
-## 🎯 Çözülen Problem
-Düğün ve etkinliklerde makineden çıkan 3:2 oranındaki fotoğrafların **6x8 inç (15x20 cm, 4:3 oran)** kağıda basılırken gelinin duvağının veya damadın kafasının kesilmesini önlemek, EXIF verisiyle yönü (yatay/dikey) otomatik anlamak ve fare aramadan klavyeden `Space` ile seri baskı almak.
+## Çözülen problem
+Makineden çıkan 3:2 oranındaki fotoğrafları farklı oranlı foto kâğıtlarına (ör. 6x8 inç / 15x20 cm, 4:3) basarken gelinin duvağının ya da damadın kafasının kesilmesini önlemek, EXIF verisiyle yönü (yatay/dikey) otomatik anlamak ve fare aramadan `Space` ile seri baskı almak.
 
-## 🚀 Temel Özellikler
-- **Otomatik Yön Algılama:** EXIF sensör verisiyle fotoğrafın dikey mi yatay mı olduğunu anında algılar.
-- **6x8 Akıllı Kırpma Kılavuzu:** Kağıt dışına taşan alanları şeffaf maske ile gösterir; `Yukarı/Aşağı` veya `Sağ/Sol` ok tuşlarıyla kadrajı kaydırıp kafaları kurtarabilirsiniz.
-- **Tek Tuşla Baskı (`Space` / `Enter`):** Fotoğrafı CUPS üzerinden doğrudan DNP DS620'ye gönderir, üzerine "✓ Basıldı" damgası vurur ve beklemeden sonraki fotoğrafa geçer.
-- **Piksel-Kusursuz (Pixel-Perfect) 300 DPI:** Yazıcıya göndermeden önce tam 1800x2400 (veya 2400x1800) piksel raster üretir; yazıcı sürücüsünün kafasına göre kırpmasını engeller.
-- **Çoklu Platform:** Linux (.AppImage, .deb), macOS (.dmg) ve Windows (.exe).
-- **Profesyonel Tasarım:** Capture One / Leica stüdyo tarzı sade karanlık mod.
+## Temel özellikler
+- **Otomatik yön algılama:** EXIF verisiyle fotoğrafın dikey mi yatay mı olduğunu anında algılar.
+- **Akıllı kırpma kılavuzu:** Seçili kâğıdın oranına göre kâğıt dışında kalan alanı şeffaf maskeyle gösterir; ok tuşları ya da fareyle kadrajı kaydırıp kafaları kurtarabilirsiniz. Ekranda görülen, basılanla birebir aynıdır.
+- **Tek tuşla baskı (`Space` / `Enter`):** Fotoğrafı yazıcı kuyruğuna gönderir ve "✓ Basıldı" damgası vurur. Baskı arka planda hazırlanır; beklemeden başka fotoğrafa geçip basmaya devam edebilirsiniz.
+- **Piksel-kusursuz 300 DPI:** Seçili kâğıt boyutunda tam piksel ölçüsünde raster üretir (ör. 6x8 için 1800x2400); yazıcı sürücüsünün kendi kafasına göre kırpmasını engeller.
+- **Kuyruk ve rulo takibi:** Baskı kuyruğu, iptal, tekrar basma; yazıcı bildiriyorsa kalan baskı sayısı, bildirmiyorsa elle rulo sayacı.
+- **Çoklu platform:** Linux (.AppImage), macOS (.dmg) ve Windows (.exe).
 
-## ⌨️ Klavye Kısayolları
+## Klavye kısayolları
 
 | Kısayol | İşlev |
 | :--- | :--- |
 | **`Space`** veya **`Enter`** | **Yazdır** (aynı fotoğrafta kalır) |
 | **`←` / `→`** | Önceki / Sonraki Fotoğraf |
-| **`↑` / `↓`** | Dikey Kadrajı Kaydır (Kafayı / Duvağı Kurtar) |
+| **`↑` / `↓`** | Kadrajı Kaydır (Kafayı / Duvağı Kurtar) |
 | **`R`** | 90° Saat Yönünde Döndür |
 | **`C`** | Kadrajı Merkeze Sıfırla |
 | **`1` - `9`** | Kopya Adedini Belirle |
+| **`Q`** | Baskı Kuyruğu |
 
-## 🛠️ Çalıştırma (Development)
+## Çalıştırma (geliştirme)
 
 ```bash
 # Bağımlılıkları yükleyin
@@ -39,3 +44,5 @@ npm run dev
 # Linux paketini (.AppImage) derleyin
 npm run build:linux
 ```
+
+Uygulama ikonu `build/icon.svg` dosyasıdır; PNG'leri yeniden üretmek için `scripts/make-icons.sh`.

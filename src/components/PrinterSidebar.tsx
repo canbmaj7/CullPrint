@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2, Pause, Play } from 'lucide-react';
 import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
 import { describeFinish, finishDisplayName, FINISH_SECTION_HINT } from '../utils/finish';
+import { formatPaperSize } from '../utils/media';
 
 interface PrinterSidebarProps {
   printers: PrinterState[];
@@ -11,7 +12,7 @@ interface PrinterSidebarProps {
   onChangeFinish: (finish: string) => void;
   copies: number;
   onChangeCopies: (copies: number) => void;
-  isPrinting: boolean;
+  preparingCount: number; // arka planda hazırlanıp gönderilen baskı sayısı
   onPrint: () => void;
   hasPhoto: boolean;
   lastPrintStatus: { success: boolean; message: string } | null;
@@ -37,7 +38,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   onChangeFinish,
   copies,
   onChangeCopies,
-  isPrinting,
+  preparingCount,
   onPrint,
   hasPhoto,
   lastPrintStatus,
@@ -60,7 +61,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   const mediaChoice = mediaOption?.choices.find((c) => c.value === currentSettings.mediaSize);
   const mediaLabel =
     mediaChoice?.label ||
-    (currentSettings.mediaSize === 'w432h576' ? '6x8 (15x20 cm)' : currentSettings.mediaSize);
+    formatPaperSize(currentSettings.mediaSize);
 
   const finishOption = capabilities?.finishOptionName
     ? capabilities.options.find((o) => o.name === capabilities.finishOptionName)
@@ -101,7 +102,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
             }`}
             title={
               activePrinter?.usbConnected === false
-                ? 'CUPS Kuyruğu Hazır ancak USB kablosu takılı değil'
+                ? 'Yazıcı kuyruğu hazır ancak USB kablosu takılı değil'
                 : 'Yazıcı Hazır ve Bağlı'
             }
           />
@@ -138,8 +139,8 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
                   disabled={isTogglingQueue}
                   title={
                     isQueuePaused
-                      ? 'CUPS kuyruğunu devam ettir: bekleyen işler basılmaya başlar'
-                      : 'CUPS kuyruğunu duraklat: gönderilen işler kâğıda çıkmadan bekler'
+                      ? 'Kuyruğu devam ettir: bekleyen işler basılmaya başlar'
+                      : 'Kuyruğu duraklat: gönderilen işler kâğıda çıkmadan bekler'
                   }
                 >
                   {isTogglingQueue ? (
@@ -199,7 +200,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
         ) : (
           <div className="no-printer-alert">
             <AlertCircle size={14} />
-            <span>Yazıcı bulunamadı (CUPS kontrol ediliyor...)</span>
+            <span>Yazıcı bulunamadı (kontrol ediliyor...)</span>
           </div>
         )}
       </div>
@@ -301,25 +302,21 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
 
       {/* 3. Dev Yazdırma Butonu */}
       <div className="sidebar-action-area">
-        <button
-          className={`giant-print-btn ${isPrinting ? 'loading' : ''}`}
-          onClick={onPrint}
-          disabled={!hasPhoto || isPrinting}
-        >
-          {isPrinting ? (
-            <>
-              <Loader2 size={18} className="animate-spin" />
-              <span>Kuyruğa Gönderiliyor...</span>
-            </>
-          ) : (
-            <>
-              <Printer size={18} />
-              <div className="btn-text-block">
-                <span className="btn-main-label">YAZDIR</span>
-                <span className="btn-sub-label">Space veya Enter</span>
-              </div>
-            </>
-          )}
+        {/* Baskı arka planda hazırlanır: buton kilitlenmez, art arda basılabilir */}
+        <button className="giant-print-btn" onClick={onPrint} disabled={!hasPhoto}>
+          <Printer size={18} />
+          <div className="btn-text-block">
+            <span className="btn-main-label">YAZDIR</span>
+            <span className="btn-sub-label">
+              {preparingCount > 0 ? (
+                <>
+                  <Loader2 size={11} className="animate-spin" /> {preparingCount} baskı gönderiliyor
+                </>
+              ) : (
+                'Space veya Enter'
+              )}
+            </span>
+          </div>
         </button>
 
         {/* Son Baskı Bildirimi */}

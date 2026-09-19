@@ -25,7 +25,9 @@ interface QueueDrawerProps {
   onClearHistory: () => void;
   rollPrintsCount: number;
   onResetRoll: () => void;
-  rollCapacity?: number; // default 200 for 6x8 paper
+  rollCapacity: number; // elle sayaç için rulonun baskı kapasitesi (kâğıt boyutu başına)
+  onChangeRollCapacity: (capacity: number) => void;
+  paperLabel: string; // seçili kâğıt, ör. '6x8 (15x20 cm)'
   // Yazıcının kendi bildirdiği kalan baskı ve sarf yüzdesi (Gutenprint); varsa elle sayacın yerine geçer
   printerMediaRemaining?: number;
   printerMarkerLevel?: number;
@@ -41,7 +43,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   onClearHistory,
   rollPrintsCount,
   onResetRoll,
-  rollCapacity = 200,
+  rollCapacity,
+  onChangeRollCapacity,
+  paperLabel,
   printerMediaRemaining,
   printerMarkerLevel,
 }) => {
@@ -98,12 +102,12 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           </button>
         </div>
 
-        {/* DNP DS620 Rulo Kağıt Tüketim Sayacı */}
+        {/* Rulo Kağıt Tüketim Sayacı (yazıcı bildirmiyorsa elle) */}
         <div className="roll-meter-card">
           <div className="roll-meter-header">
             <div className="roll-meter-title">
               <Layers size={14} />
-              <span>DNP DS620 Kağıt Rulosu (6x8)</span>
+              <span>Kağıt Rulosu · {paperLabel}</span>
             </div>
             {!hasPrinterSupply && (
               <button
@@ -132,7 +136,16 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           ) : (
             <div className="roll-meter-info">
               <span>
-                Kullanılan: <b>{rollPrintsCount}</b> / {rollCapacity} baskı
+                Kullanılan: <b>{rollPrintsCount}</b> /{' '}
+                <input
+                  type="number"
+                  className="roll-capacity-input"
+                  min={1}
+                  value={rollCapacity}
+                  onChange={(e) => onChangeRollCapacity(Number(e.target.value))}
+                  title="Rulonun bu kâğıt boyutunda kaç baskı aldığı (yazıcı ve kâğıda göre değişir)"
+                />{' '}
+                baskı
               </span>
               <span>Kalan: <b>{Math.max(0, rollCapacity - rollPrintsCount)}</b></span>
             </div>
@@ -207,7 +220,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       <span className="job-chip size">6x8</span>
 
                       {job.cupsJobId && (
-                        <span className="job-chip cups-id" title="CUPS İş Kimliği">
+                        <span className="job-chip cups-id" title="Yazıcı kuyruğundaki iş numarası">
                           #{job.cupsJobId.split('-').pop()}
                         </span>
                       )}
@@ -228,7 +241,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                           className="job-cancel-btn"
                           onClick={() => onCancelJob(job)}
                           disabled={cancellingJobIds.has(job.id)}
-                          title="Bu işi CUPS kuyruğundan iptal et"
+                          title="Bu işi yazıcı kuyruğundan iptal et"
                         >
                           {cancellingJobIds.has(job.id) ? (
                             <RefreshCw size={12} className="animate-spin" />

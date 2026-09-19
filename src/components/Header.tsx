@@ -2,7 +2,6 @@ import React from 'react';
 import {
   FolderOpen,
   PlusSquare,
-  Printer,
   CheckCircle2,
   Image as ImageIcon,
   Filter,
@@ -13,6 +12,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { FilterMode, ThemeMode } from '../types';
+import appIcon from '../../build/icon.svg';
 
 interface HeaderProps {
   currentFolder: string | null;
@@ -23,8 +23,6 @@ interface HeaderProps {
   theme: ThemeMode;
   queueCount: number;
   activeJobCount: number;
-  activePrinterName: string | null;
-  activePrinterIsDNP: boolean;
   onSelectFolder: () => void;
   onSelectFiles: () => void;
   onToggleTheme: () => void;
@@ -42,8 +40,6 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   queueCount,
   activeJobCount,
-  activePrinterName,
-  activePrinterIsDNP,
   onSelectFolder,
   onSelectFiles,
   onToggleTheme,
@@ -55,14 +51,10 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="header-container">
       {/* Sol: Logo ve İsim */}
       <div className="header-brand">
-        <div className="brand-icon">
-          <Printer size={18} />
-        </div>
+        <img className="brand-logo" src={appIcon} alt="" draggable={false} />
         <div className="brand-text">
           <span className="brand-title">CullPrint</span>
-          <span className="brand-subtitle">
-            {activePrinterIsDNP ? 'DS620 Pro' : (activePrinterName || 'Yazıcı Yok')}
-          </span>
+          <span className="brand-subtitle">Seç · Kadrajla · Bas</span>
         </div>
       </div>
 
