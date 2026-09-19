@@ -20,7 +20,8 @@ export function resolveMediaPixelSize(
   _dpi: number = 300
 ): { widthIn: number; heightIn: number } {
   if (mediaSizeToken) {
-    const match = mediaSizeToken.match(/^w(\d+)h(\d+)$/i);
+    // Windows sürücü kâğıdı: 'w432h576|258' (boyut + RawKind)
+    const match = mediaSizeToken.match(/^w(\d+)h(\d+)(?:\|\d+)?$/i);
     if (match) {
       return {
         widthIn: Number(match[1]) / 72,

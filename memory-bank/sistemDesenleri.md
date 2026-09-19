@@ -32,7 +32,7 @@ flowchart TD
 - `lpoptions -p <yazici> -l` çıktısı `parseLpOptions` (electron/main.ts) ile yapısal `PrinterOption[]` listesine ayrıştırılır; medya-boyutu ve bitirme/kalite seçenek isimleri regex ile otomatik tespit edilir (`mediaOptionName`, `finishOptionName`).
 - `lp -d <yazici> -n <kopya> -o <mediaOptionName>=<deger> -o <finishOptionName>=<deger> <dosya>` ile baskı gönderilir — `execFile` (argüman dizisi, shell interpolasyonu yok) kullanılarak.
 - `lsusb` ile DNP'nin fiziksel USB bağlantısı canlı olarak (4 saniyede bir) kontrol edilir.
-- Yazdırma `electron/print/` altında platform arka uçlarına ayrılmıştır (`PrintBackend`); Windows arka ucu geliştiriliyor.
+- Yazdırma `electron/print/` altında platform arka uçlarına ayrılmıştır (`PrintBackend`); Windows arka ucu `windows.ts` + `windows.ps1`.
 
 ### 3. Ayarlar Modalı (SettingsModal) — Yazıcı Genelleştirmesi
 - Yeni `src/components/SettingsModal.tsx`: seçili yazıcının gerçek CUPS seçeneklerini (medya boyutu, yüzey/kalite, diğer) gösterir, kullanıcı seçimini `localStorage` içinde yazıcı bazlı (`cullprint_printer_settings_<yazici-adi>`) saklar.

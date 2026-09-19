@@ -1,6 +1,6 @@
 import { cupsBackend } from './cups';
-import { unsupportedBackend } from './unsupported';
+import { windowsBackend } from './windows';
 import type { PrintBackend } from './types';
 
-// Linux ve macOS CUPS kullanır; Windows arka ucu (Spooler) eklenene kadar yer tutucu
-export const printBackend: PrintBackend = process.platform === 'win32' ? unsupportedBackend : cupsBackend;
+// Linux ve macOS CUPS kullanır, Windows yerel Spooler'ı (PowerShell üzerinden)
+export const printBackend: PrintBackend = process.platform === 'win32' ? windowsBackend : cupsBackend;

@@ -30,7 +30,8 @@
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
 
-- [ ] Windows yazdırma arka ucu (`electron/print/windows.ts`) ve gerçek DS620 ile Windows testi.
+- [x] Windows yazdırma arka ucu yazıldı (`electron/print/windows.ts` + `windows.ps1`, 2026-09-19); protokol ve PrintTicket yardımcıları Linux'ta `pwsh` ile test edildi.
+- [ ] Windows'ta gerçek DS620 ile test.
 
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
 - [ ] İsteğe bağlı: Hafif pozlama / kontrast telafisi ayarı.
