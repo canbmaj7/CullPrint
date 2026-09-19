@@ -643,6 +643,11 @@ ipcMain.handle('cancel-print-job', async (_event, jobId: string) => {
     await execFileAsync('cancel', [sanitizedId]);
     return { success: true };
   } catch (err: unknown) {
+    // İş zaten iptal edilmişse (ör. çift tıklama) istenen sonuç gerçekleşmiştir
+    const stderr = (err as { stderr?: string })?.stderr ?? '';
+    if (/already cancel/i.test(stderr)) {
+      return { success: true };
+    }
     console.warn('CUPS iş iptali hatası:', err);
     const errorMsg = err instanceof Error ? err.message : String(err);
     return { success: false, error: errorMsg };

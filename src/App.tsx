@@ -647,6 +647,9 @@ export const App: React.FC = () => {
   );
 
   // 4.6. Kuyruktaki İşi İptal Et
+  // İptali süren işler: CUPS yanıtı gelene kadar butonu kilitler (çift tıklamayı önler)
+  const [cancellingJobIds, setCancellingJobIds] = useState<Set<string>>(() => new Set());
+
   const handleCancelJob = useCallback(async (job: PrintJob) => {
     if (!window.electronAPI) return;
     if (!job.cupsJobId) {
@@ -657,6 +660,7 @@ export const App: React.FC = () => {
       return;
     }
 
+    setCancellingJobIds((prev) => new Set(prev).add(job.id));
     try {
       const res = await window.electronAPI.cancelPrintJob(job.cupsJobId);
       if (res.success) {
@@ -665,9 +669,20 @@ export const App: React.FC = () => {
             j.id === job.id ? { ...j, status: 'cancelled' } : j
           )
         );
+      } else {
+        setLastPrintStatus({
+          success: false,
+          message: `İş iptal edilemedi: ${res.error || 'Bilinmeyen hata'}`,
+        });
       }
     } catch (err) {
       console.error('İş iptal edilemedi:', err);
+    } finally {
+      setCancellingJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
     }
   }, []);
 
@@ -875,6 +890,7 @@ export const App: React.FC = () => {
         onClose={() => setIsQueueOpen(false)}
         queue={queue}
         onCancelJob={handleCancelJob}
+        cancellingJobIds={cancellingJobIds}
         onReprintJob={handleReprintJob}
         onClearHistory={handleClearHistory}
         rollPrintsCount={rollPrintsCount}

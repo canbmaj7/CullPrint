@@ -19,6 +19,7 @@ interface QueueDrawerProps {
   onClose: () => void;
   queue: PrintJob[];
   onCancelJob: (job: PrintJob) => void;
+  cancellingJobIds: Set<string>;
   onReprintJob: (job: PrintJob) => void;
   onClearHistory: () => void;
   rollPrintsCount: number;
@@ -31,6 +32,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   onClose,
   queue,
   onCancelJob,
+  cancellingJobIds,
   onReprintJob,
   onClearHistory,
   rollPrintsCount,
@@ -203,10 +205,15 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                         <button
                           className="job-cancel-btn"
                           onClick={() => onCancelJob(job)}
+                          disabled={cancellingJobIds.has(job.id)}
                           title="Bu işi CUPS kuyruğundan iptal et"
                         >
-                          <Ban size={12} />
-                          <span>İptal Et</span>
+                          {cancellingJobIds.has(job.id) ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <Ban size={12} />
+                          )}
+                          <span>{cancellingJobIds.has(job.id) ? 'İptal ediliyor…' : 'İptal Et'}</span>
                         </button>
                       ) : (
                         <div className="job-history-actions">
