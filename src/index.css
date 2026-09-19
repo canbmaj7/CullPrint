@@ -349,6 +349,7 @@ body {
 /* Canvas & Image Wrapper */
 .canvas-wrapper {
   flex: 1;
+  container-type: size;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -364,8 +365,8 @@ body {
 
 .aspect-box {
   position: relative;
-  max-width: 90%;
-  max-height: 90%;
+  /* Boyut içerikten değil alandan gelir: görsel döndürülünce kutu değişmez */
+  width: min(90cqw, calc(90cqh * var(--target-ratio)));
   box-shadow: 0 0 0 1px var(--border-subtle), 0 16px 36px rgba(0, 0, 0, 0.25);
   border-radius: 4px;
   overflow: hidden;
@@ -373,17 +374,14 @@ body {
 }
 
 .image-transform-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: absolute;
+  inset: 0;
 }
 
 .stage-photo {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   display: block;
   pointer-events: none;
   transition: opacity var(--duration-base) var(--ease-standard), object-position 0.1s ease;

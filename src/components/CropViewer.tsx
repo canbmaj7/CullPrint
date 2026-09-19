@@ -52,6 +52,26 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   // 6x8 inç kağıt oranı 4:3 (veya dikeyde 3:4)
   const targetRatio = effectiveIsLandscape ? 4 / 3 : 3 / 4;
 
+  // Döndürme sonrası görselin oranı: kağıttan genişse yanlardan, uzunsa üst/alttan kırpılır
+  // (rasterizer.ts ile aynı kural)
+  const imgW = photo.width || 6000;
+  const imgH = photo.height || 4000;
+  const effectiveImageRatio = isRotated90 ? imgH / imgW : imgW / imgH;
+  const cropAxis: 'x' | 'y' = effectiveImageRatio > targetRatio ? 'x' : 'y';
+
+  // Döndürülmüş karede tanımlı kadraj ofsetlerini, döndürülmemiş <img> üzerindeki
+  // object-position'a çevir (rasterizer'daki canvas döndürmesinin tersi)
+  const ox = (photo.cropOffsetX || 0) / 2;
+  const oy = (photo.cropOffsetY || 0) / 2;
+  const [posX, posY] =
+    totalRotation === 90
+      ? [50 + oy, 50 - ox]
+      : totalRotation === 180
+        ? [50 - ox, 50 - oy]
+        : totalRotation === 270
+          ? [50 - oy, 50 + ox]
+          : [50 + ox, 50 + oy];
+
   // Mouse ile sürükleyerek kadraj kaydırma
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -63,7 +83,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
 
-    if (effectiveIsLandscape) {
+    if (cropAxis === 'x') {
       if (Math.abs(deltaX) > 2) {
         onAdjustCrop(deltaX > 0 ? 3 : -3, 0);
         setDragStart({ x: e.clientX, y: e.clientY });
@@ -110,17 +130,15 @@ export const CropViewer: React.FC<CropViewerProps> = ({
       <div className="canvas-wrapper">
         <div
           className="aspect-box"
-          style={{
-            aspectRatio: `${targetRatio}`,
-          }}
+          style={
+            {
+              aspectRatio: `${targetRatio}`,
+              '--target-ratio': targetRatio,
+            } as React.CSSProperties
+          }
         >
           {/* Gerçek Fotoğraf Katmanı */}
-          <div
-            className="image-transform-container"
-            style={{
-              transform: `rotate(${totalRotation}deg)`,
-            }}
-          >
+          <div className="image-transform-container">
             <img
               src={mediaSrc}
               alt={photo.name}
@@ -128,11 +146,13 @@ export const CropViewer: React.FC<CropViewerProps> = ({
               onLoad={() => setLoadedPath(photo.path)}
               draggable={false}
               style={{
+                // 90/270°'de <img> kutunun en/boyu yer değiştirmiş haliyle çizilip döndürülür;
+                // böylece döndürme sonrası kutuyu tam kaplar
+                width: isRotated90 ? `${100 / targetRatio}%` : '100%',
+                height: isRotated90 ? `${100 * targetRatio}%` : '100%',
+                transform: `translate(-50%, -50%) rotate(${totalRotation}deg)`,
                 objectFit: 'cover',
-                // Kadraj kaydırma ofsetleri
-                objectPosition: effectiveIsLandscape
-                  ? `${50 + (photo.cropOffsetX || 0) / 2}% 50%`
-                  : `50% ${50 + (photo.cropOffsetY || 0) / 2}%`,
+                objectPosition: `${posX}% ${posY}%`,
               }}
             />
           </div>
