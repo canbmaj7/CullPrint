@@ -98,7 +98,8 @@ async function pruneSpoolDir() {
 
 function getJpegDimensions(buffer: Buffer) {
   let offset = 2;
-  while (offset < buffer.length) {
+  // SOF segmenti tamponun (ilk 64 KB) dışındaysa null döner; büyük EXIF'li dosyalarda (ör. Fujifilm) olur
+  while (offset + 9 <= buffer.length) {
     if (buffer[offset] !== 0xff) break;
     const marker = buffer[offset + 1];
     if (marker === 0xc0 || marker === 0xc2) {
@@ -146,9 +147,10 @@ async function parseImageInfo(filePath: string) {
 
     // 2. EXIF yön bilgisi (Buffer üzerinden exifr)
     try {
-      const data = await exifr.parse(buffer, ['Orientation']);
-      if (data?.Orientation) {
-        orientation = data.Orientation;
+      // exifr.parse değeri metne çevirir ('Rotate 270 CW'); orientation() sayıyı (1-8) verir
+      const exifOrientation = await exifr.orientation(buffer);
+      if (exifOrientation) {
+        orientation = exifOrientation;
       }
     } catch {
       // EXIF yoksa varsayılan devam
