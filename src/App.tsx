@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings } from './types';
 import { generatePrintRaster } from './utils/rasterizer';
+import { getCropAxis } from './utils/crop';
 import { Header } from './components/Header';
 import { CropViewer } from './components/CropViewer';
 import { Filmstrip } from './components/Filmstrip';
@@ -765,15 +766,20 @@ export const App: React.FC = () => {
           setSelectedIndex((prev) => Math.min(filteredPhotos.length - 1, prev + 1));
           break;
 
+        // Yukarı/Aşağı: fotoğrafın kırpıldığı eksende kaydır (dikeyde üst/alt, yatayda sol/sağ);
+        // Sol/Sağ oklar fotoğraf değiştirmeye ayrılmış
         case 'ArrowUp':
+        case 'ArrowDown': {
           e.preventDefault();
-          handleAdjustCrop(0, -5); // Kafa kurtar
+          if (!currentPhoto) break;
+          const step = e.key === 'ArrowUp' ? -5 : 5; // Yukarı: kafa kurtar / sola kaydır
+          if (getCropAxis(currentPhoto) === 'x') {
+            handleAdjustCrop(step, 0);
+          } else {
+            handleAdjustCrop(0, step);
+          }
           break;
-
-        case 'ArrowDown':
-          e.preventDefault();
-          handleAdjustCrop(0, 5);  // Ayak kurtar
-          break;
+        }
 
         case 'r':
         case 'R':
@@ -830,6 +836,7 @@ export const App: React.FC = () => {
     handleAdjustCrop,
     handleRotate,
     handleResetCrop,
+    currentPhoto,
     filteredPhotos.length,
     isQueueOpen,
     isSettingsOpen,

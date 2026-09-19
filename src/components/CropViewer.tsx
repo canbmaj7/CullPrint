@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw } from 'lucide-react';
 import { PhotoItem } from '../types';
+import { getCropAxis } from '../utils/crop';
 
 interface CropViewerProps {
   photo: PhotoItem | null;
@@ -54,10 +55,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
 
   // Döndürme sonrası görselin oranı: kağıttan genişse yanlardan, uzunsa üst/alttan kırpılır
   // (rasterizer.ts ile aynı kural)
-  const imgW = photo.width || 6000;
-  const imgH = photo.height || 4000;
-  const effectiveImageRatio = isRotated90 ? imgH / imgW : imgW / imgH;
-  const cropAxis: 'x' | 'y' = effectiveImageRatio > targetRatio ? 'x' : 'y';
+  const cropAxis = getCropAxis(photo);
 
   // Döndürülmüş karede tanımlı kadraj ofsetlerini, döndürülmemiş <img> üzerindeki
   // object-position'a çevir (rasterizer'daki canvas döndürmesinin tersi)
@@ -167,10 +165,10 @@ export const CropViewer: React.FC<CropViewerProps> = ({
       {/* Alt Hızlı Kontroller (Döndür / Kadraj Kaydır) */}
       <div className="viewer-bottom-controls">
         <div className="crop-tip-pill">
-          {effectiveIsLandscape ? (
+          {cropAxis === 'x' ? (
             <>
               <MoveHorizontal size={14} />
-              <span>Kadrajı kaydırmak için <b>Sağ/Sol</b> okları kullanın veya fareyle sürükleyin</span>
+              <span>Kadrajı sola/sağa kaydırmak için <b>Yukarı/Aşağı</b> okları kullanın veya fareyle sürükleyin</span>
             </>
           ) : (
             <>
