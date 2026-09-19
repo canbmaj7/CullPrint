@@ -20,6 +20,8 @@ export interface PrinterInfo {
   stateMessage?: string;
   pausedByUser?: boolean;
   problem?: string;
+  mediaRemaining?: number;
+  markerLevel?: number;
 }
 
 export interface PrintJobParams {
@@ -75,6 +77,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   cancelPrintJob: (jobId: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('cancel-print-job', jobId),
   getCupsQueue: (): Promise<CupsJobInfo[]> => ipcRenderer.invoke('get-cups-queue'),
+  getJobState: (cupsJobId: string): Promise<{ state: string; message?: string }> =>
+    ipcRenderer.invoke('get-job-state', cupsJobId),
   setPrinterEnabled: (printerName: string, enabled: boolean): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('set-printer-enabled', printerName, enabled),
   getFileInfo: (filePath: string): Promise<FileItem | null> => ipcRenderer.invoke('get-file-info', filePath),

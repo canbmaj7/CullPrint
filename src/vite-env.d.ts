@@ -20,6 +20,8 @@ export interface PrinterInfo {
   stateMessage?: string;
   pausedByUser?: boolean;
   problem?: string;
+  mediaRemaining?: number;
+  markerLevel?: number;
 }
 
 export interface PrintJobParams {
@@ -73,6 +75,7 @@ export interface IElectronAPI {
   cancelPrintJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
   getCupsQueue: () => Promise<CupsJobInfo[]>;
   setPrinterEnabled: (printerName: string, enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+  getJobState: (cupsJobId: string) => Promise<{ state: string; message?: string }>;
   getFileInfo: (filePath: string) => Promise<FileItem | null>;
   getFilePath: (file: File) => string;
 }

@@ -126,11 +126,25 @@ async function parseImageInfo(filePath: string) {
     await fd.read(buffer, 0, 65536, 0);
     await fd.close();
 
-    // 1. JPEG binary marker boyutları
+    // 1. JPEG binary marker boyutları; bulunamazsa (PNG/WebP vb.) sharp ile başlık okunur
     const dims = getJpegDimensions(buffer);
     if (dims) {
       width = dims.width;
       height = dims.height;
+    } else {
+      const sharp = await loadSharp();
+      if (sharp) {
+        try {
+          const meta = await sharp(filePath).metadata();
+          if (meta.width && meta.height) {
+            width = meta.width;
+            height = meta.height;
+          }
+          if (meta.orientation) orientation = meta.orientation;
+        } catch {
+          // okunamazsa varsayılan boyutlar kalır
+        }
+      }
     }
 
     // 2. EXIF yön bilgisi (Buffer üzerinden exifr)
@@ -475,6 +489,23 @@ function describePrinterProblem(reasons: string[], message: string, disabled: bo
   return problems.length > 0 ? problems.join(' · ') : undefined;
 }
 
+// Gutenprint backend'i yazıcının bildirdiği sarf durumunu CUPS'a yazar (son baskı anındaki değer):
+//   marker-message='147 native prints remaining on 6x8 (A5) media'  marker-levels=73
+async function readPrinterSupply(printerName: string): Promise<{ mediaRemaining?: number; markerLevel?: number }> {
+  try {
+    const { stdout } = await execFileAsync('lpoptions', ['-p', printerName]);
+    const remaining = stdout.match(/marker-message='?(\d+)\s+(?:native\s+)?prints?\s+remaining/i);
+    const level = stdout.match(/marker-levels=(-?\d+)/);
+    return {
+      mediaRemaining: remaining ? Number(remaining[1]) : undefined,
+      // CUPS'ta negatif seviye "bilinmiyor" demektir
+      markerLevel: level && Number(level[1]) >= 0 ? Number(level[1]) : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 ipcMain.handle('get-printers', async () => {
   try {
     // -l: durum mesajı ve "Alerts:" (printer-state-reasons) satırlarını da verir
@@ -538,6 +569,7 @@ ipcMain.handle('get-printers', async () => {
 
     for (const p of parsed) {
       const isDNP = /ds620|dnp|dai_nippon|rx1/i.test(p.name);
+      const supply = await readPrinterSupply(p.name);
       const disabled = p.status === 'disabled';
       printers.push({
         name: p.name,
@@ -548,6 +580,8 @@ ipcMain.handle('get-printers', async () => {
         stateMessage: p.message || undefined,
         pausedByUser: disabled && USER_PAUSE_MESSAGE.test(p.message),
         problem: describePrinterProblem(p.reasons, p.message, disabled),
+        mediaRemaining: supply.mediaRemaining,
+        markerLevel: supply.markerLevel,
       });
     }
 
@@ -777,6 +811,20 @@ ipcMain.handle('set-printer-enabled', async (_event, printerName: string, enable
     console.warn('CUPS kuyruk durumu değiştirilemedi:', err);
     const errorMsg = err instanceof Error ? err.message : String(err);
     return { success: false, error: errorMsg };
+  }
+});
+
+// 8a. Kuyruktan çıkan bir işin nasıl sonlandığı (tamamlandı / iptal / hata). ipptool yoksa 'unknown'.
+ipcMain.handle('get-job-state', async (_event, cupsJobId: string) => {
+  const num = cupsJobId?.match(/-(\d+)$/)?.[1];
+  if (!num) return { state: 'unknown' };
+  try {
+    const { stdout } = await execFileAsync('ipptool', ['-tv', `ipp://localhost/jobs/${num}`, 'get-job-attributes.test']);
+    const state = stdout.match(/job-state \(enum\) = (\S+)/)?.[1] ?? 'unknown';
+    const message = stdout.match(/job-state-message \([^)]*\) = (.+)/)?.[1]?.trim();
+    return { state, message };
+  } catch {
+    return { state: 'unknown' };
   }
 });
 

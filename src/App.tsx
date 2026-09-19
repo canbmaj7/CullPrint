@@ -171,6 +171,11 @@ export const App: React.FC = () => {
     [selectedPrinter]
   );
 
+  // Periyodik CUPS senkronu güncel kuyruğu okuyabilsin; sonucu sorulan işler iki kez işlenmesin
+  const queueRef = useRef(queue);
+  queueRef.current = queue;
+  const resolvingJobIdsRef = useRef<Set<string>>(new Set());
+
   // CUPS'ta takılı kalan işin nedeni (ör. "Printer open failure"); yazıcı 'idle' görünse bile
   const [cupsJobProblem, setCupsJobProblem] = useState<string | null>(null);
 
@@ -183,15 +188,55 @@ export const App: React.FC = () => {
         const cupsJobsById = new Map(activeCupsJobs.map((j) => [j.id, j]));
         setCupsJobProblem(activeCupsJobs.find((j) => j.problem)?.problem ?? null);
 
+        // Kuyruktan çıkan işlerin gerçek sonucunu sor: tamamlandı mı, dışarıdan iptal mi, hata mı
+        const finishedJobs = queueRef.current.filter(
+          (job) =>
+            job.cupsJobId &&
+            (job.status === 'printing' || job.status === 'queued') &&
+            !cupsJobsById.has(job.cupsJobId) &&
+            !resolvingJobIdsRef.current.has(job.id)
+        );
+        finishedJobs.forEach((job) => resolvingJobIdsRef.current.add(job.id));
+        const outcomes = new Map<string, { state: string; message?: string }>();
+        await Promise.all(
+          finishedJobs.map(async (job) => {
+            try {
+              outcomes.set(job.id, await window.electronAPI!.getJobState(job.cupsJobId!));
+            } catch {
+              // Sorgu başarısızsa işi takılı bırakma: eskisi gibi tamamlandı sayılır
+              outcomes.set(job.id, { state: 'unknown' });
+            }
+          })
+        );
+
+        // Uygulama dışından iptal edilen iş basılmadı: rozeti ve rulo sayacını geri al
+        for (const job of finishedJobs) {
+          if (outcomes.get(job.id)?.state !== 'canceled') continue;
+          const printCount = recordPrintedCount(job.photoPath, -job.copies);
+          setPhotos((prev) =>
+            prev.map((p) => (p.path === job.photoPath ? { ...p, printed: printCount > 0, printCount } : p))
+          );
+          setRollPrintsCount((prev) => Math.max(0, prev - job.copies));
+        }
+
         setQueue((prev) =>
           prev.map((job) => {
             if (job.cupsJobId && (job.status === 'printing' || job.status === 'queued')) {
-              const cupsJob = cupsJobsById.get(job.cupsJobId);
-              if (!cupsJob) {
+              const outcome = outcomes.get(job.id);
+              if (outcome) {
+                resolvingJobIdsRef.current.delete(job.id);
+                if (outcome.state === 'canceled') {
+                  return { ...job, status: 'cancelled', errorMessage: undefined };
+                }
+                if (outcome.state === 'aborted') {
+                  return { ...job, status: 'failed', errorMessage: outcome.message || 'Baskı CUPS tarafından durduruldu' };
+                }
+                // 'completed' ya da ipptool yoksa 'unknown': eskisi gibi tamamlandı say
                 return { ...job, status: 'completed', errorMessage: undefined };
               }
+              const cupsJob = cupsJobsById.get(job.cupsJobId);
               // CUPS'ta takılı kalan işin nedenini çekmecede göster, sorun geçince kaldır
-              if (cupsJob.problem !== job.errorMessage) {
+              if (cupsJob && cupsJob.problem !== job.errorMessage) {
                 return { ...job, errorMessage: cupsJob.problem };
               }
             }
@@ -745,7 +790,11 @@ export const App: React.FC = () => {
         return;
       }
 
-      if ((isQueueOpen || isSettingsOpen) && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q') {
+      // Ayarlar açıkken yalnızca Escape; kuyruk çekmecesi açıkken Escape ve Q (kapatmak için)
+      if (isSettingsOpen && e.key !== 'Escape') {
+        return;
+      }
+      if (isQueueOpen && e.key !== 'Escape' && e.key !== 'q' && e.key !== 'Q') {
         return;
       }
 
@@ -946,6 +995,8 @@ export const App: React.FC = () => {
         rollPrintsCount={rollPrintsCount}
         onResetRoll={handleResetRoll}
         rollCapacity={200}
+        printerMediaRemaining={printers.find((p) => p.name === selectedPrinter)?.mediaRemaining}
+        printerMarkerLevel={printers.find((p) => p.name === selectedPrinter)?.markerLevel}
       />
 
       {/* Yazıcı Ayarları Modalı */}

@@ -27,6 +27,8 @@ export interface PrinterState {
   stateMessage?: string;
   pausedByUser?: boolean;
   problem?: string;
+  mediaRemaining?: number;
+  markerLevel?: number;
 }
 
 export interface PrintJob {

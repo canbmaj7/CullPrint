@@ -191,6 +191,14 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
                 ⚠️ USB Kablosu Takılı Değil
               </div>
             )}
+            {activePrinter?.mediaRemaining !== undefined && (
+              <div
+                className="printer-status-text"
+                title="Yazıcının son baskı sırasında bildirdiği değer; rulo değişince bir sonraki baskıda güncellenir"
+              >
+                Kalan kâğıt: <b>{activePrinter.mediaRemaining} baskı</b>
+              </div>
+            )}
             {activePrinter?.isDNP && activePrinter.usbConnected === true && (
               <div className="printer-status-text" style={{ color: 'var(--success-green)' }}>
                 ✓ USB Cihazı Algılandı (Hazır)

@@ -25,6 +25,9 @@ interface QueueDrawerProps {
   rollPrintsCount: number;
   onResetRoll: () => void;
   rollCapacity?: number; // default 200 for 6x8 paper
+  // Yazıcının kendi bildirdiği kalan baskı ve sarf yüzdesi (Gutenprint); varsa elle sayacın yerine geçer
+  printerMediaRemaining?: number;
+  printerMarkerLevel?: number;
 }
 
 export const QueueDrawer: React.FC<QueueDrawerProps> = ({
@@ -38,6 +41,8 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   rollPrintsCount,
   onResetRoll,
   rollCapacity = 200,
+  printerMediaRemaining,
+  printerMarkerLevel,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'history'>('all');
 
@@ -55,7 +60,12 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
       ? historyJobs
       : queue;
 
-  const rollPercentage = Math.min(100, Math.round((rollPrintsCount / rollCapacity) * 100));
+  const hasPrinterSupply = printerMediaRemaining !== undefined;
+  const rollPercentage = hasPrinterSupply
+    ? printerMarkerLevel !== undefined
+      ? 100 - printerMarkerLevel
+      : Math.min(100, Math.round(((rollCapacity - printerMediaRemaining) / rollCapacity) * 100))
+    : Math.min(100, Math.round((rollPrintsCount / rollCapacity) * 100));
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -94,14 +104,16 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
               <Layers size={14} />
               <span>DNP DS620 Kağıt Rulosu (6x8)</span>
             </div>
-            <button
-              className="roll-reset-btn"
-              onClick={onResetRoll}
-              title="Yeni rulo takıldığında sayacı sıfırla"
-            >
-              <RotateCw size={12} />
-              <span>Ruloyu Sıfırla</span>
-            </button>
+            {!hasPrinterSupply && (
+              <button
+                className="roll-reset-btn"
+                onClick={onResetRoll}
+                title="Yeni rulo takıldığında sayacı sıfırla"
+              >
+                <RotateCw size={12} />
+                <span>Ruloyu Sıfırla</span>
+              </button>
+            )}
           </div>
           <div className="roll-meter-bar-bg">
             <div
@@ -109,12 +121,21 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
               style={{ width: `${rollPercentage}%` }}
             />
           </div>
-          <div className="roll-meter-info">
-            <span>
-              Kullanılan: <b>{rollPrintsCount}</b> / {rollCapacity} baskı
-            </span>
-            <span>Kalan: <b>{Math.max(0, rollCapacity - rollPrintsCount)}</b></span>
-          </div>
+          {hasPrinterSupply ? (
+            <div className="roll-meter-info">
+              <span title="Yazıcının son baskı sırasında bildirdiği değer; rulo değişince bir sonraki baskıda güncellenir">
+                Yazıcıya göre kalan: <b>{printerMediaRemaining}</b> baskı
+              </span>
+              {printerMarkerLevel !== undefined && <span>%{printerMarkerLevel}</span>}
+            </div>
+          ) : (
+            <div className="roll-meter-info">
+              <span>
+                Kullanılan: <b>{rollPrintsCount}</b> / {rollCapacity} baskı
+              </span>
+              <span>Kalan: <b>{Math.max(0, rollCapacity - rollPrintsCount)}</b></span>
+            </div>
+          )}
         </div>
 
         {/* Sekmeler (Tabs) */}
