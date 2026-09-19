@@ -10,6 +10,32 @@ import { QueueDrawer } from './components/QueueDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { FileItem } from './vite-env';
 
+// Fotoğraf başına basılan kopya sayısı, dosya yoluna göre kalıcı. Uygulama kapanıp açılınca ya da
+// klasör yeniden açılınca "Basıldı" rozetleri kaybolup aynı fotoğraf iki kez basılmasın diye.
+const PRINTED_STORAGE_KEY = 'cullprint_printed_counts';
+
+function loadPrintedCounts(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(PRINTED_STORAGE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function recordPrintedCount(photoPath: string, delta: number): number {
+  const counts = loadPrintedCounts();
+  const next = Math.max(0, (counts[photoPath] || 0) + delta);
+  if (next > 0) {
+    counts[photoPath] = next;
+  } else {
+    delete counts[photoPath];
+  }
+  try {
+    localStorage.setItem(PRINTED_STORAGE_KEY, JSON.stringify(counts));
+  } catch {}
+  return next;
+}
+
 export const App: React.FC = () => {
   const [currentFolder, setCurrentFolder] = useState<string | null>(null);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -233,10 +259,11 @@ export const App: React.FC = () => {
 
   // Yardımcı: Fotoğraf listesini güncelleme
   const addFilesToPhotos = useCallback((newFiles: FileItem[], isAppend = false) => {
+    const printedCounts = loadPrintedCounts();
     const newPhotos: PhotoItem[] = newFiles.map((file) => ({
       ...file,
-      printed: false,
-      printCount: 0,
+      printed: (printedCounts[file.path] || 0) > 0,
+      printCount: printedCounts[file.path] || 0,
       cropOffsetX: 0,
       cropOffsetY: 0,
       userRotation: 0,
@@ -501,12 +528,11 @@ export const App: React.FC = () => {
           )
         );
 
-        // Durumu güncelle: Basıldı rozeti
+        // Durumu güncelle: Basıldı rozeti (kalıcı kayıttan)
+        const printCount = recordPrintedCount(currentPhoto.path, copies);
         setPhotos((prev) =>
           prev.map((p) =>
-            p.path === currentPhoto.path
-              ? { ...p, printed: true, printCount: (p.printCount || 0) + copies }
-              : p
+            p.path === currentPhoto.path ? { ...p, printed: true, printCount } : p
           )
         );
 
@@ -622,11 +648,10 @@ export const App: React.FC = () => {
                 : j
             )
           );
+          const printCount = recordPrintedCount(job.photoPath, job.copies);
           setPhotos((prev) =>
             prev.map((p) =>
-              p.path === job.photoPath
-                ? { ...p, printed: true, printCount: (p.printCount || 0) + job.copies }
-                : p
+              p.path === job.photoPath ? { ...p, printed: true, printCount } : p
             )
           );
           setLastPrintStatus({
@@ -678,6 +703,14 @@ export const App: React.FC = () => {
             j.id === job.id ? { ...j, status: 'cancelled' } : j
           )
         );
+        // İptal edilen iş basılmadı: rozeti ve rulo sayacını geri al
+        const printCount = recordPrintedCount(job.photoPath, -job.copies);
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.path === job.photoPath ? { ...p, printed: printCount > 0, printCount } : p
+          )
+        );
+        setRollPrintsCount((prev) => Math.max(0, prev - job.copies));
       } else {
         setLastPrintStatus({
           success: false,
