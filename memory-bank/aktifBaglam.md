@@ -80,7 +80,9 @@
     - PNG/WebP boyut/yön `sharp().metadata()` ile okunur; Ayarlar açıkken `Q` devre dışı.
     - **AppImage testi:** `sharp` paketlenmiş sürümde `app.asar.unpacked` içinden yükleniyor ve küçük resim üretiyor (doğrulandı).
     - **Geliştirme ortamı notu:** `electron/main.ts` değişince vite-plugin-electron'un otomatik yeniden başlatması Linux'ta GPU hatasıyla takılabiliyor; uygulamayı elle yeniden başlat. Preload değişikliği sayfayı yeniden yükler.
+    - **Yazdırma arka uçları (2026-09-19):** Yazıcı kodu `electron/print/` altına taşındı. `types.ts` içindeki `PrintBackend` arayüzü; `cups.ts` (Linux/macOS, önceki davranışın aynısı), `unsupported.ts` (Windows için geçici yer tutucu), `index.ts` (`process.platform`'a göre seçim). `main.ts`'teki IPC handler'ları yalnızca `printBackend`'e devrediyor; renderer ve IPC kanal adları değişmedi.
 
 ## Sonraki Adımlar
 - Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
 - Sürüm öncesi bilinen açık hata kalmadı; sıradaki adım yeni özellikler.
+- **Windows desteği:** `electron/print/windows.ts` yazılacak (plan: .NET `PrintDocument` + `Get-Printer`/`Get-PrintJob`/`Remove-PrintJob`, sürekli açık tek PowerShell süreci; parlak/mat için iki ayrı Windows yazıcı örneği; kalan baskı sayısı ilk sürümde yok). Rasterizer CUPS'a özgü `w432h576` adına değil sürücünün bildirdiği boyuta dayanmalı. Test kullanıcının Windows makinesinde gerçek DS620 + DNP sürücüsüyle yapılacak.

@@ -26,8 +26,11 @@
 
 - [x] AppImage'da `sharp` doğrulandı; gerçek kalan baskı sayısı (Gutenprint marker), dışarıdan iptal edilen işlerin doğru gösterimi, PNG/WebP boyutları, Ayarlar+Q (2026-09-19).
 - [x] Sürüm öncesi düzeltme turu (2026-09-19): döndürülmüş önizleme, yazıcı/iş hatalarının arayüzde gösterimi, kalıcı "Basıldı" durumu, yatay fotoğrafta klavye kadrajı, geçici dosyaların RAM'de birikmesi, DNP USB kimliği.
+- [x] Yazdırma katmanı platform arka uçlarına ayrıldı (`electron/print/`, 2026-09-19) — Windows desteğinin 1. adımı.
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
+
+- [ ] Windows yazdırma arka ucu (`electron/print/windows.ts`) ve gerçek DS620 ile Windows testi.
 
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
 - [ ] İsteğe bağlı: Hafif pozlama / kontrast telafisi ayarı.

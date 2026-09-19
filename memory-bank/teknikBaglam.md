@@ -11,7 +11,7 @@
   - **Linux / macOS:** CUPS (Common Unix Printing System) - `lp`, `lpoptions`, `lpstat`. `execute-print`/`cancel-print-job` IPC handler'ları `execFile` (argüman dizisi, shell injection riski yok) kullanır.
   - **Yazıcı Yetenek Keşfi:** `lpoptions -p <yazici> -l` çıktısı `parseLpOptions` ile yapısal veriye ayrıştırılır; herhangi bir CUPS yazıcısının medya boyutu/yüzey seçenekleri `SettingsModal` üzerinden yapılandırılabilir.
   - **Fiziksel USB Durumu:** `lsusb` üzerinden donanımın takılı olup olmadığının canlı tespiti (DNP vendor `1208`).
-  - **Windows:** Win32 Spooler API (henüz aktif geliştirilmedi, plan aşamasında).
+  - **Windows:** Spooler (PowerShell/.NET), `electron/print/windows.ts` — geliştiriliyor; şimdilik `unsupported.ts` yer tutucusu.
 
 ## Dağıtım ve CI/CD (GitHub Actions)
 Geliştirme birincil olarak Linux üzerinde yapılır. Çoklu platform paketleri bulut otomasyonuyla oluşturulur:
