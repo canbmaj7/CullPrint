@@ -321,7 +321,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
             <>
               <Printer size={18} />
               <div className="btn-text-block">
-                <span className="btn-main-label">YAZDIR & İLERLE</span>
+                <span className="btn-main-label">YAZDIR</span>
                 <span className="btn-sub-label">Space veya Enter</span>
               </div>
             </>
@@ -356,7 +356,7 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
         <div className="shortcuts-list">
           <div className="shortcut-item">
             <kbd>Space</kbd> / <kbd>Enter</kbd>
-            <span>Yazdır & Sonrakine Geç</span>
+            <span>Yazdır</span>
           </div>
           <div className="shortcut-item">
             <kbd>←</kbd> <kbd>→</kbd>

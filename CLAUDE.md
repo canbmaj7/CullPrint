@@ -4,7 +4,7 @@ Bu dosya sadece Claude'un otomatik yüklediği, projeye özel kritik kurallar ve
 
 ## Kesinlikle uyulması gereken kurallar
 
-- **`media-thumb://` asla baskı raster'ında kullanılmaz.** `src/App.tsx`'teki `handlePrintAndNext`/`handleReprintJob` ve `src/utils/rasterizer.ts`'nin `imageUrl` parametresi her zaman `media://` (tam çözünürlüklü orijinal) kullanmalı. `media-thumb://` sadece `Filmstrip.tsx` (240px) ve `CropViewer.tsx` (1600px) önizlemeleri içindir — baskı kalitesini asla etkilememeli.
+- **`media-thumb://` asla baskı raster'ında kullanılmaz.** `src/App.tsx`'teki `handlePrint`/`handleReprintJob` ve `src/utils/rasterizer.ts`'nin `imageUrl` parametresi her zaman `media://` (tam çözünürlüklü orijinal) kullanmalı. `media-thumb://` sadece `Filmstrip.tsx` (240px) ve `CropViewer.tsx` (1600px) önizlemeleri içindir — baskı kalitesini asla etkilememeli.
 - **Yazıcıyı DNP DS620'ye özel hardcode etme.** Yazıcı desteği genelleştirildi (bkz. `SettingsModal.tsx`, `parseLpOptions`). DNP varsayılan/öncelikli davranış olarak korunur ama yeni kod herhangi bir CUPS yazıcısıyla çalışmalı.
 - **`execute-print`/`cancel-print-job` her zaman `execFile` (argüman dizisi) kullanır, `exec` (shell string) değil** — shell injection riski. Sadece salt-okunur `lpstat`/`lpoptions`/`lsusb` çağrıları `exec` kalabilir.
 - **Yazıcı kodu `electron/print/` altındadır** (`PrintBackend`: `cups.ts` Linux/macOS, `windows.ts` + `windows.ps1` Windows). `main.ts`'e yazıcı komutu ekleme; iki arka ucu da güncelle.

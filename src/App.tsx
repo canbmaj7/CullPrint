@@ -430,7 +430,7 @@ export const App: React.FC = () => {
     return photos;
   }, [photos, filterMode]);
 
-  // Baskı sonrası bir sonraki hedefe geçiş
+  // Baskı sonrası seçimi hedef fotoğrafta tut (filtre listeyi değiştirse bile)
   useEffect(() => {
     if (!nextTargetPathRef.current) return;
     const targetPath = nextTargetPathRef.current;
@@ -497,12 +497,16 @@ export const App: React.FC = () => {
     );
   }, [currentPhoto]);
 
-  // 4. Yazdırma ve Sonrakine Geçme (Baskı Motoru)
-  const handlePrintAndNext = useCallback(async () => {
+  // 4. Yazdırma (Baskı Motoru)
+  const handlePrint = useCallback(async () => {
     if (!currentPhoto || !window.electronAPI || isPrinting) return;
 
-    // Hedef fotoğrafı belirle (mevcut fotoğraftan bir sonraki veya yoksa bir önceki)
-    const targetPhoto = filteredPhotos[selectedIndex + 1] ?? filteredPhotos[selectedIndex - 1] ?? null;
+    // Baskıdan sonra aynı fotoğrafta kalınır. Yalnızca "Basılmayan" filtresinde basılan fotoğraf
+    // listeden çıkacağı için komşusu seçilir (bir sonraki, yoksa bir önceki).
+    const targetPhoto =
+      filterMode === 'unprinted'
+        ? (filteredPhotos[selectedIndex + 1] ?? filteredPhotos[selectedIndex - 1] ?? null)
+        : currentPhoto;
     nextTargetPathRef.current = targetPhoto ? targetPhoto.path : null;
 
     const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -627,6 +631,7 @@ export const App: React.FC = () => {
     printerCapabilities,
     selectedIndex,
     filteredPhotos,
+    filterMode,
   ]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
@@ -802,7 +807,7 @@ export const App: React.FC = () => {
         case ' ':
         case 'Enter':
           e.preventDefault();
-          handlePrintAndNext();
+          handlePrint();
           break;
 
         case 'ArrowLeft':
@@ -881,7 +886,7 @@ export const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    handlePrintAndNext,
+    handlePrint,
     handleAdjustCrop,
     handleRotate,
     handleResetCrop,
@@ -962,7 +967,7 @@ export const App: React.FC = () => {
           copies={copies}
           onChangeCopies={setCopies}
           isPrinting={isPrinting}
-          onPrint={handlePrintAndNext}
+          onPrint={handlePrint}
           hasPhoto={Boolean(currentPhoto)}
           lastPrintStatus={lastPrintStatus}
           currentSettings={printerSettings}

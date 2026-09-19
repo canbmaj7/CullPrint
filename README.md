@@ -20,7 +20,7 @@ Düğün ve etkinliklerde makineden çıkan 3:2 oranındaki fotoğrafların **6x
 
 | Kısayol | İşlev |
 | :--- | :--- |
-| **`Space`** veya **`Enter`** | **Yazdır ve Sonrakine Geç** |
+| **`Space`** veya **`Enter`** | **Yazdır** (aynı fotoğrafta kalır) |
 | **`←` / `→`** | Önceki / Sonraki Fotoğraf |
 | **`↑` / `↓`** | Dikey Kadrajı Kaydır (Kafayı / Duvağı Kurtar) |
 | **`R`** | 90° Saat Yönünde Döndür |
