@@ -24,11 +24,10 @@
 
 - [x] DNP DS620 ile ilk fiziksel baskı testi (2026-09-19): dikey/yatay/döndürme/kopya/iptal doğrulandı; Linux küçük resim (`sharp`), akıcı geçiş (önden yükleme), önizleme yarış durumu, `lpstat` durum ayrıştırma ve açık tema metin hataları düzeltildi; kuyruk duraklat/devam butonu eklendi.
 
+- [x] AppImage'da `sharp` doğrulandı; gerçek kalan baskı sayısı (Gutenprint marker), dışarıdan iptal edilen işlerin doğru gösterimi, PNG/WebP boyutları, Ayarlar+Q (2026-09-19).
 - [x] Sürüm öncesi düzeltme turu (2026-09-19): döndürülmüş önizleme, yazıcı/iş hatalarının arayüzde gösterimi, kalıcı "Basıldı" durumu, yatay fotoğrafta klavye kadrajı, geçici dosyaların RAM'de birikmesi, DNP USB kimliği.
 
 ## Yapılacaklar (Sonraki İyileştirmeler)
-- [ ] Paketlenmiş AppImage'da `sharp` testi.
-- [ ] Kuyruk senkronunda iptal/abort edilen işlerin "tamamlandı" sayılması.
-- [ ] PNG/WebP boyut okuma (`sharp().metadata()`).
+
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
 - [ ] İsteğe bağlı: Hafif pozlama / kontrast telafisi ayarı.

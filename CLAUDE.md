@@ -13,8 +13,10 @@ Bu dosya sadece Claude'un otomatik yüklediği, projeye özel kritik kurallar ve
 - Kod değişikliğinden sonra **her zaman** `npm run compile` (`tsc && vite build`) ile doğrula, hata yoksa commit at.
 - Bu proje hem Claude hem **Gemini (Antigravity CLI / `agy`, MCP köprüsü üzerinden)** tarafından geliştiriliyor — `mcp__antigravity__use_antigravity` ile görev gönderilip `git diff` + derleme ile doğrulanıyor. Gemini'nin çıktısını asla kör kabul etme.
 - Önemli bir mimari/özellik değişikliğinden sonra `memory-bank/aktifBaglam.md` ve `ilerleme.md`'yi güncelle (bu ikisi hem Claude hem Gemini tarafından güncel tutulmalı).
-- Şu an gerçek bir DNP DS620 veya ikinci bir CUPS yazıcısı bağlı değil — fiziksel/uçtan uca baskı testi henüz yapılmadı, sadece derleme + kod incelemesiyle doğrulanabiliyor.
+- Gerçek DNP DS620 ile fiziksel test 2026-09-19'da yapıldı (Gutenprint, `gutenprint53+usb://dnp-ds620/<SERİ>`). Kullanıcı `sys` grubunda: `lpadmin`/`cupsdisable`/`cupsenable` sudo'suz çalışır (`sudo` Claude Code içinde şifre soramaz).
+- **Kâğıt harcamadan test (kuru baskı):** `cupsdisable -r "CullPrint kuru test" <yazıcı>` → uygulamadan bas → `/tmp/cullprint-spool/` içindeki son JPEG'i incele → işleri `cancel` ile sil. **`cupsenable`'dan önce mutlaka `lpstat -o` ile kuyruğun boş olduğunu doğrula** — bekleyen iş anında basılır.
+- Yazıcı değişirse CUPS kuyruğu eski seri numarasını arar ("No matching printers found!"); `lpadmin -p <yazıcı> -v gutenprint53+usb://dnp-ds620/<YENİ_SERİ>` (seri: `lsusb -v -d 1452:` → iSerial).
 
 ## Bilinen küçük eksik
 
-- Ayarlar Modalı açıkken `Q` tuşuna basmak Kuyruk Çekmecesi'ni de açabiliyor (iki modal üst üste gelebilir). İşlevsel bir hata değil, düzeltilmedi.
+- (Düzeltildi 2026-09-19) Ayarlar Modalı açıkken `Q` artık Kuyruk Çekmecesini açmıyor.

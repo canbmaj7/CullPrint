@@ -75,11 +75,12 @@
     - **Kalıcı "Basıldı":** `localStorage['cullprint_printed_counts']` (dosya yolu → kopya); klasör açılınca geri yüklenir. İptal edilen iş rozetten ve rulo sayacından düşülür.
     - **Klavye kadraj:** Yukarı/Aşağı fotoğrafın kırpılan ekseninde kaydırır (`src/utils/crop.ts` `getCropAxis`, önizleme + rasterizer ile aynı kural).
     - **Geçici dosyalar:** Küçük resim önbelleği `~/.cache/cullprint/thumbs` (1 GB sınır, açılışta temizlik); spool'da son 20 dosya tutulur.
-    - **Keşif:** Gutenprint, DS620'nin gerçek kalan baskı sayısını CUPS'a bildiriyor: `lpoptions -p <yazıcı>` → `marker-message='147 native prints remaining on 6x8 (A5) media'`, `marker-levels=73`. Elle tutulan rulo sayacının yerine kullanılabilir.
+    - **Gerçek kalan baskı:** Gutenprint'in CUPS'a yazdığı `marker-message` ('147 native prints remaining…') ve `marker-levels` `lpoptions -p` ile okunur (`readPrinterSupply`); kenar çubuğunda gösterilir ve varsa kuyruk çekmecesindeki elle rulo sayacının yerine geçer. Değer son baskı anına aittir.
+    - **Dışarıdan iptal edilen işler:** Kuyruktan çıkan iş `get-job-state` IPC'si ile `ipptool -tv ipp://localhost/jobs/<n> get-job-attributes.test` üzerinden sorgulanır (`completed`/`canceled`/`aborted`); iptal edilen iş rozetten ve sayaçtan düşülür. `ipptool` yoksa "tamamlandı" sayılır.
+    - PNG/WebP boyut/yön `sharp().metadata()` ile okunur; Ayarlar açıkken `Q` devre dışı.
+    - **AppImage testi:** `sharp` paketlenmiş sürümde `app.asar.unpacked` içinden yükleniyor ve küçük resim üretiyor (doğrulandı).
+    - **Geliştirme ortamı notu:** `electron/main.ts` değişince vite-plugin-electron'un otomatik yeniden başlatması Linux'ta GPU hatasıyla takılabiliyor; uygulamayı elle yeniden başlat. Preload değişikliği sayfayı yeniden yükler.
 
 ## Sonraki Adımlar
 - Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
-- Paketlenmiş AppImage'da `sharp`'ın çalıştığını doğrula (asarUnpack yapılandırıldı, test edilmedi).
-- Kuyruk senkronu CUPS'tan kaybolan her işi "tamamlandı" sayıyor (dışarıdan iptal/abort edilenler dahil).
-- PNG/WebP'de boyut okunmuyor (6000x4000 varsayılır) → dikey PNG yatay sanılır; `sharp().metadata()` ile düzelt.
-- Rulo sayacını yazıcının bildirdiği gerçek kalan baskı sayısıyla (`marker-message`) değiştirme önerisi.
+- Sürüm öncesi bilinen açık hata kalmadı; sıradaki adım yeni özellikler.
