@@ -394,7 +394,7 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
 // 3. Get CUPS Printers & USB Connection Check
 ipcMain.handle('get-printers', async () => {
   try {
-    const { stdout } = await execAsync('lpstat -p -d');
+    const { stdout } = await execAsync('lpstat -p -d', { env: { ...process.env, LC_ALL: 'C' } });
     const lines = stdout.split('\n');
     let defaultPrinter = '';
 
@@ -420,10 +420,16 @@ ipcMain.handle('get-printers', async () => {
 
     // Parse printer status: "printer Dai_Nippon_Printing_DP-DS620 is idle. enabled since..."
     for (const line of lines) {
-      const match = line.match(/^printer\s+([^\s]+)\s+is\s+([^.]+)/);
+      // Biçimler: "printer X is idle.", "printer X now printing X-42.", "printer X disabled since ..."
+      const match = line.match(/^printer\s+(\S+)\s+(.*)$/);
       if (match) {
         const name = match[1];
-        const status = match[2].trim();
+        const rest = match[2];
+        const status = /^now printing/.test(rest)
+          ? 'printing'
+          : /^disabled/.test(rest)
+            ? 'disabled'
+            : (rest.match(/^is\s+([^.]+)/)?.[1] ?? rest).trim();
         const isDNP = /ds620|dnp|dai_nippon|rx1/i.test(name);
 
         printers.push({

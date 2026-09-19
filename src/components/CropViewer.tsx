@@ -18,11 +18,10 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [imgLoaded, setImgLoaded] = useState(false);
-
-  useEffect(() => {
-    setImgLoaded(false);
-  }, [photo?.path]);
+  // Yüklenen dosyanın yolunu tut: önbellekten anında gelen görselde onLoad, sıfırlama efektinden
+  // önce tetiklenip görseli görünmez bırakabiliyordu
+  const [loadedPath, setLoadedPath] = useState<string | null>(null);
+  const imgLoaded = loadedPath === photo?.path;
 
   useEffect(() => {
     const handleGlobalMouseUp = () => setIsDragging(false);
@@ -126,7 +125,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
               src={mediaSrc}
               alt={photo.name}
               className={`stage-photo ${!imgLoaded ? 'is-loading' : ''}`}
-              onLoad={() => setImgLoaded(true)}
+              onLoad={() => setLoadedPath(photo.path)}
               draggable={false}
               style={{
                 objectFit: 'cover',
