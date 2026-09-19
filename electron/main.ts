@@ -223,6 +223,18 @@ app.whenReady().then(() => {
         });
       }
 
+      // createThumbnailFromPath sadece macOS/Windows'ta var. Linux'ta orijinali olduğu gibi
+      // sun: Chromium EXIF yönünü uygular, böylece önizleme baskı raster'ıyla tutarlı kalır.
+      if (typeof nativeImage.createThumbnailFromPath !== 'function') {
+        const original = await fs.promises.readFile(filePath);
+        const ext = path.extname(filePath).toLowerCase();
+        const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+        return new Response(original, {
+          status: 200,
+          headers: { 'Content-Type': mime, 'Content-Length': String(original.length) },
+        });
+      }
+
       const img = await nativeImage.createThumbnailFromPath(filePath, { width: size, height: size });
       const buffer = img.toJPEG(86);
       await fs.promises.writeFile(cachePath, buffer);
