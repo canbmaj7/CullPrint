@@ -21,7 +21,6 @@ interface HeaderProps {
   unprintedCount: number;
   filterMode: FilterMode;
   theme: ThemeMode;
-  queueCount: number;
   activeJobCount: number;
   onSelectFolder: () => void;
   onSelectFiles: () => void;
@@ -38,7 +37,6 @@ export const Header: React.FC<HeaderProps> = ({
   unprintedCount,
   filterMode,
   theme,
-  queueCount,
   activeJobCount,
   onSelectFolder,
   onSelectFiles,
@@ -115,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <ListOrdered size={15} />
           <span>Kuyruk</span>
-          {queueCount > 0 && <span className="queue-badge">{queueCount}</span>}
+          {activeJobCount > 0 && <span className="queue-badge" title="Bekleyen ve hazırlanan baskılar">{activeJobCount}</span>}
           {activeJobCount > 0 && <span className="queue-pulse-dot" />}
         </button>
 

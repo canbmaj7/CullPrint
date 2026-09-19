@@ -65,15 +65,9 @@ export const App: React.FC = () => {
     });
   };
 
-  // Baskı Kuyruğu ve Rulo Sayacı State'leri
-  const [queue, setQueue] = useState<PrintJob[]>(() => {
-    try {
-      const saved = localStorage.getItem('cullprint_queue');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Baskı kuyruğu yalnızca bu çalıştırmaya aittir (kalıcı saklanmaz; oturum yedeği planı: memory-bank/planOturumYedegi.md).
+  // Rulo sayacı ise fiziksel ruloyu izlediği için kalıcıdır.
+  const [queue, setQueue] = useState<PrintJob[]>([]);
 
   const [rollPrintsCount, setRollPrintsCount] = useState<number>(() => {
     const saved = localStorage.getItem('cullprint_roll_prints');
@@ -82,11 +76,10 @@ export const App: React.FC = () => {
 
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
 
+  // Eski sürümlerin kalıcı kuyruk kaydını temizle
   useEffect(() => {
-    try {
-      localStorage.setItem('cullprint_queue', JSON.stringify(queue.slice(0, 100)));
-    } catch {}
-  }, [queue]);
+    localStorage.removeItem('cullprint_queue');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('cullprint_roll_prints', rollPrintsCount.toString());
@@ -905,7 +898,6 @@ export const App: React.FC = () => {
         unprintedCount={unprintedCount}
         filterMode={filterMode}
         theme={theme}
-        queueCount={queue.length}
         activeJobCount={activeJobCount}
         onSelectFolder={handleSelectFolder}
         onSelectFiles={handleSelectFiles}

@@ -50,34 +50,20 @@ const THUMB_CACHE_DIR =
   process.platform === 'linux'
     ? path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'cullprint', 'thumbs')
     : path.join(app.getPath('userData'), 'thumb-cache');
-const THUMB_CACHE_MAX_BYTES = 1024 * 1024 * 1024; // 1 GB
-const THUMB_CACHE_TARGET_BYTES = 800 * 1024 * 1024; // temizlikten sonra hedef
-
 const SPOOL_DIR = path.join(os.tmpdir(), 'cullprint-spool');
-// Son baskı dosyaları inceleme/hata ayıklama için tutulur; CUPS dosyayı lp anında kendi dizinine kopyalar
+// Çalışma süresince son baskı dosyaları inceleme/hata ayıklama için tutulur; CUPS dosyayı lp anında kendi dizinine kopyalar
 const SPOOL_KEEP_COUNT = 20;
 
-// Dizindeki dosyaları en eskiden başlayarak, toplam boyut hedefe inene kadar siler
-async function pruneThumbCache() {
-  try {
-    const names = await fs.promises.readdir(THUMB_CACHE_DIR);
-    const files = await Promise.all(
-      names.map(async (name) => {
-        const filePath = path.join(THUMB_CACHE_DIR, name);
-        const stat = await fs.promises.stat(filePath);
-        return { filePath, size: stat.size, mtimeMs: stat.mtimeMs };
-      })
-    );
-    let total = files.reduce((sum, f) => sum + f.size, 0);
-    if (total <= THUMB_CACHE_MAX_BYTES) return;
-    files.sort((a, b) => a.mtimeMs - b.mtimeMs);
-    for (const f of files) {
-      if (total <= THUMB_CACHE_TARGET_BYTES) break;
-      await fs.promises.unlink(f.filePath).catch(() => {});
-      total -= f.size;
+// Geçici dosyalar (baskı raster'ları, küçük resimler) yalnızca bu çalıştırmaya aittir:
+// kapanışta silinir; çökme ya da zorla kapatma artıkları bir sonraki açılışta silinir.
+function removeTempFiles() {
+  for (const dir of [SPOOL_DIR, THUMB_CACHE_DIR, path.join(os.tmpdir(), 'cullprint-thumbs')]) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 2 });
+    } catch (err) {
+      // Windows'ta hâlâ açık bir dosya (ör. süren baskı) silinemeyebilir; sonraki açılışta silinir
+      console.warn('Geçici dosyalar silinemedi:', dir, err);
     }
-  } catch (err) {
-    console.warn('Küçük resim önbelleği temizlenemedi:', err);
   }
 }
 
@@ -230,13 +216,26 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
 }
 
+// Tek örnek: ikinci açılış mevcut pencereyi öne getirir. Geçici dosya temizliği başka bir örneğin
+// kullandığı dosyaları silmesin diye şart (app.exit: will-quit ve temizlik çalışmadan çıkar).
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+  app.exit(0);
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+  app.on('will-quit', removeTempFiles);
+}
+
 app.whenReady().then(() => {
+  if (!hasInstanceLock) return;
+  // Önceki çalıştırmanın (çökme/zorla kapatma) artıklarını sil
+  removeTempFiles();
   fs.mkdirSync(THUMB_CACHE_DIR, { recursive: true });
   fs.mkdirSync(SPOOL_DIR, { recursive: true });
-  // Açılışta arka planda temizlik (önbellek sınırı, eski baskı dosyaları); eski /tmp önbelleğini kaldır
-  void pruneThumbCache();
-  void pruneSpoolDir();
-  fs.promises.rm(path.join(os.tmpdir(), 'cullprint-thumbs'), { recursive: true, force: true }).catch(() => {});
 
   // Register 'media://' protocol handler with direct fs reading
   protocol.handle('media', async (request) => {

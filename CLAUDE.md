@@ -19,8 +19,14 @@ Bu dosya sadece Claude'un otomatik yüklediği, projeye özel kritik kurallar ve
 - Bu proje hem Claude hem **Gemini (Antigravity CLI / `agy`, MCP köprüsü üzerinden)** tarafından geliştiriliyor — `mcp__antigravity__use_antigravity` ile görev gönderilip `git diff` + derleme ile doğrulanıyor. Gemini'nin çıktısını asla kör kabul etme.
 - Önemli bir mimari/özellik değişikliğinden sonra `memory-bank/aktifBaglam.md` ve `ilerleme.md`'yi güncelle (bu ikisi hem Claude hem Gemini tarafından güncel tutulmalı).
 - Gerçek DNP DS620 ile fiziksel test 2026-09-19'da yapıldı (Gutenprint, `gutenprint53+usb://dnp-ds620/<SERİ>`). Kullanıcı `sys` grubunda: `lpadmin`/`cupsdisable`/`cupsenable` sudo'suz çalışır (`sudo` Claude Code içinde şifre soramaz).
-- **Kâğıt harcamadan test (kuru baskı):** `cupsdisable -r "CullPrint kuru test" <yazıcı>` → uygulamadan bas → `/tmp/cullprint-spool/` içindeki son JPEG'i incele → işleri `cancel` ile sil. **`cupsenable`'dan önce mutlaka `lpstat -o` ile kuyruğun boş olduğunu doğrula** — bekleyen iş anında basılır.
+- **Kâğıt harcamadan test (kuru baskı):** `cupsdisable -r "CullPrint kuru test" <yazıcı>` → uygulamadan bas → `/tmp/cullprint-spool/` içindeki son JPEG'i **uygulama açıkken** incele (geçici dosyalar kapanışta ve açılışta silinir) → işleri `cancel` ile sil. **`cupsenable`'dan önce mutlaka `lpstat -o` ile kuyruğun boş olduğunu doğrula** — bekleyen iş anında basılır.
 - Yazıcı değişirse CUPS kuyruğu eski seri numarasını arar ("No matching printers found!"); `lpadmin -p <yazıcı> -v gutenprint53+usb://dnp-ds620/<YENİ_SERİ>` (seri: `lsusb -v -d 1452:` → iSerial).
+
+## Kalıcılık
+
+- Baskı kuyruğu/geçmişi kalıcı değildir (her açılış temiz). Kalıcı: rulo sayacı, yazıcı ayarları, tema, rulo kapasitesi, "Basıldı" rozetleri (`cullprint_printed_counts`, geçici).
+- Oturum yedeği/çökme kurtarma **planlandı, kodlanmadı**: `memory-bank/planOturumYedegi.md` — kullanıcı açık soruları yanıtlamadan başlama.
+- Tek örnek kilidi var (`requestSingleInstanceLock`): test için ikinci bir örnek açarken ayrı `--user-data-dir`, `XDG_CACHE_HOME` ve **kısa** `TMPDIR` kullan (uzun TMPDIR'de Chromium soketi SIGTRAP ile çöker), yoksa kullanıcının açık uygulamasının geçici dosyalarını silebilir.
 
 ## Bilinen küçük eksik
 
