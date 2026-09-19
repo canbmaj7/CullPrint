@@ -621,7 +621,7 @@ body {
   background-color: rgba(255, 255, 255, 0.06);
   padding: 3px var(--space-2);
   border-radius: var(--radius-full);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .finish-toggle-group {
@@ -714,7 +714,7 @@ body {
 
 .quick-copy-chip.active {
   border-color: var(--border-focus);
-  color: #fff;
+  color: var(--text-primary);
   background-color: rgba(99, 102, 241, 0.15);
 }
 
@@ -952,7 +952,7 @@ kbd {
 }
 
 .filmstrip-item.active .thumb-name {
-  color: #fff;
+  color: var(--text-primary);
   font-weight: var(--weight-semibold);
 }
 
@@ -995,7 +995,7 @@ kbd {
 .drag-drop-title {
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .drag-drop-subtitle {
