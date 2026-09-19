@@ -59,5 +59,17 @@
     - **Hareket (Motion) & Animasyonlar:** Buton basma geri bildirimi (`:active { transform: scale(0.97) }`), CropViewer fotoğraf geçiş kararması (`imgLoaded` + `.stage-photo.is-loading`), kuyruk çekmecesi yumuşak kayışı (`--duration-slow` + `--ease-standard`) ve baskı durumu bildirim animasyonu (`bannerEnter`) entegre edildi.
     - **SettingsModal Temizliği:** `SettingsModal.tsx` içindeki ~40 satır içi `style={{...}}` bloğu tamamen kaldırılarak `src/index.css` içindeki tokenlaştırılmış sınıflarla değiştirildi.
 
+16. **İlk Fiziksel DNP DS620 Testi (2026-09-19) ve Sahada Bulunan Düzeltmeler:**
+    - Dikey, yatay (sürücü otomatik döndürüyor), 90° elle döndürme, 2 kopya ve uygulamadan iptal gerçek yazıcıda doğrulandı. Yazıcıya giden dosya 1800x2400 ve orijinalden üretiliyor (küçük resimle keskinlik karşılaştırması yapıldı).
+    - **Linux küçük resim hatası:** `nativeImage.createThumbnailFromPath` yalnızca macOS/Windows'ta var; Linux'ta `media-thumb://` her istekte 500 dönüyordu. Artık `sharp` (libvips) ile EXIF yönü uygulanarak 240/1600px üretilip diske önbellekleniyor; eşzamanlı istekler tek üretimi paylaşıyor. `sharp` yüklenemezse yerel API'ye, o da yoksa orijinale düşülür. `sharp` Vite'ta `external`, electron-builder'da `asarUnpack`.
+    - **Akıcı geçiş:** `App.tsx` seçili fotoğrafın komşularının (+1, -1, +2) 1600px önizlemesini önden yüklüyor.
+    - **CropViewer yarış durumu:** Önbellekten anında gelen görselde `onLoad`, sıfırlama efektinden önce tetiklenip görseli `opacity:0`'da bırakıyordu; yüklenme durumu artık `loadedPath === photo.path` ile hesaplanıyor.
+    - **Yazıcı durumu ayrıştırma:** `lpstat -p` baskı sırasında `now printing`, duraklatılınca `disabled` yazıyor; eski regex bunları tanımadığı için yazıcı listeden düşüp "Yazıcı bulunamadı" görünüyordu. `lpstat` artık `LC_ALL=C` ile çalışıyor.
+    - **Kuyruk Duraklat / Devam Ettir butonu:** Yazıcı kartında; `set-printer-enabled` IPC → `cupsdisable`/`cupsenable` (`execFile`). Duraklatılınca işler kâğıda çıkmadan CUPS'ta bekler (kâğıt harcamadan kuru test için). Kullanıcının CUPS yönetici grubunda (`sys`/`lpadmin`) olması gerekir.
+    - Açık temada görünmeyen sabit `#fff` metinler `--text-primary`'ye çevrildi.
+    - **Ortam notu:** Bu makinedeki CUPS kuyruğu başka bir DS620'nin seri numarasıyla kurulmuştu (`No matching printers found!`); `lpadmin -v gutenprint53+usb://dnp-ds620/<SERİ>` ile düzeltildi. Yazıcı değiştirilince aynı hata beklenmeli.
+
 ## Sonraki Adımlar
-- Kullanıcının sahada / bilgisayarında uygulamayı test etmesi (`npm run dev` veya doğrudan AppImage ile).
+- Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
+- Yazıcı hata durumlarının (kâğıt/ribbon bitti, kapak açık, "yazıcı bulunamadı") arayüze yansıtılması: şu an `lp` işi kabul edince uygulama "başarılı" gösteriyor.
+- `get-printers` içindeki DNP USB üretici kimliği `1208` yanlış; gerçek kimlik `1452` (şu an "Dai Nippon" metin eşleşmesi sayesinde çalışıyor).

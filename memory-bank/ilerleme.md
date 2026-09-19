@@ -22,7 +22,10 @@
 - [x] Genel CUPS yazıcı yetenekleri (`lpoptions -l` ayrıştırma), dinamik rasterizer piksel boyutu ve `SettingsModal` ayarlar yönetimi uygulandı.
 - [x] Tasarım Sistemi ve Görsel Yenileme (Design Tokens: Indigo aksan, Spacing, Radius, Typography, Motion, buton geri bildirimi, CropViewer fotoğraf geçiş kararması ve SettingsModal CSS temizliği) tamamlandı.
 
+- [x] DNP DS620 ile ilk fiziksel baskı testi (2026-09-19): dikey/yatay/döndürme/kopya/iptal doğrulandı; Linux küçük resim (`sharp`), akıcı geçiş (önden yükleme), önizleme yarış durumu, `lpstat` durum ayrıştırma ve açık tema metin hataları düzeltildi; kuyruk duraklat/devam butonu eklendi.
+
 ## Yapılacaklar (Sonraki İyileştirmeler)
-- [ ] Sahada DNP DS620 ile ilk fiziksel baskı testi.
+- [ ] Yazıcı hata durumlarını (kâğıt/ribbon bitti, yazıcı bulunamadı) arayüze yansıtma.
+- [ ] DNP USB üretici kimliğini `1208` → `1452` düzelt.
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
 - [ ] İsteğe bağlı: Hafif pozlama / kontrast telafisi ayarı.
