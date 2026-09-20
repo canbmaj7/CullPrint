@@ -159,6 +159,11 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
               <span>Kalan: <b>{Math.max(0, rollCapacity - rollPrintsCount)}</b></span>
             </div>
           )}
+          {!hasPrinterSupply && (
+            <div className="roll-meter-note">
+              Yazıcı kalan baskıyı bildirmiyor; sayaç bu uygulamada elle tutulur.
+            </div>
+          )}
         </div>
 
         {/* Sekmeler (Tabs) */}

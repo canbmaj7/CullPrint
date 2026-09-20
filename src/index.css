@@ -1336,6 +1336,14 @@ kbd {
   color: var(--text-secondary);
 }
 
+/* Yazıcı kalan baskıyı bildirmediğinde (ör. Windows sürücüleri) sayacın elle olduğunu söyler */
+.roll-meter-note {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .roll-capacity-input {
   width: 4.5em;
   padding: 1px 4px;
