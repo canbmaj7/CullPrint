@@ -92,8 +92,30 @@ onlara göre düzeltme yapılacak. Uygulama artık yazıcıdan bağımsız sunul
     - **Oturum temizliği (2026-09-19):** Kuyruk/geçmiş artık kalıcı değil; kuyruk rozeti yalnızca bekleyen işleri sayar. Geçici JPEG'ler (spool + küçük resim önbelleği) `will-quit`'te ve açılışta silinir; 1 GB önbellek sınırı kaldırıldı (önbellek çalıştırma başına). Tek örnek kilidi eklendi. Kuyruk çekmecesi 240px küçük resim kullanır (26 MP orijinal kasıyordu); "Tümünü İptal Et" ve hazırlanan işin iptali eklendi.
     - **Planlanan: Oturum yedeği / çökme kurtarma** → `planOturumYedegi.md` (kodlanmadı, açık sorular var).
 
+## Windows Testi — Bulgular (2026-09-20, sürüyor)
+
+Test edilen paket: Actions run `35460504144` (commit `1b7be65`) taşınabilir `CullPrint 1.0.0.exe`.
+
+- **Kalan baskı sayısı Windows'ta okunamıyor (kapandı, tekrar araştırmaya gerek yok).** Gerçek DS620 ile
+  `Get-Printer`, `Get-PrinterProperty` ve `Win32_Printer` çıktıları incelendi: medya sayacına dair alan yok
+  (`MarkingTechnology`, `PaperTypesAvailable`, `AvailableJobSheets`, `Comment` hepsi boş; `Get-PrinterProperty`
+  hiç çıktı vermiyor). Windows Spooler API'sinde "kalan medya" diye standart bir alan yok — yalnızca kâğıt bitti/
+  sıkıştı gibi bayraklar var. Linux'taki değer Gutenprint'in yazıcıya kendi sorup CUPS `marker-message`'ına
+  yazmasından geliyor; DNP'nin kapalı Windows sürücüsünde o köprü yok ve sürücü arayüzünde de gösterilmiyor
+  (kullanıcı aradı, bulunamadı). DNP bu bilgiyi **PrinterInfo** adlı ayrı bir GUI aracıyla veriyor
+  (`printerinfo_1.2.1.1.zip`, DNP indirme sayfasında "Status Display Tool"): kalan medya, medya formatı, durum,
+  life counter, firmware, seri no. Belgelenmiş komut satırı/çıktı dosyası yok. Entegrasyon seçenekleri ekran
+  kazıma (kırılgan) veya USB'den doğrudan sorgulama (sürücü portu tuttuğu için çakışır) — ikisi de reddedildi.
+  **Karar:** Windows'ta elle rulo sayacı kalıyor; rulo kartına bunun elle tutulduğunu söyleyen not eklendi
+  (`QueueDrawer.tsx`, `.roll-meter-note`). Linux'ta not görünmez, davranış değişmedi.
+- **Doğrulanan:** yazıcı algılanıyor (`DP-DS620`, `USB003`), kâğıt listesi geliyor (`PrinterPaperNames`),
+  çözünürlük 300x300 DPI, duraklatma eşlememiz doğru (`ExtendedPrinterStatus: 8` → `paused`),
+  hata durumu eşlemesi doğru (`DetectedErrorState: 2` → hata yok).
+- **Henüz bakılmadı:** parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal,
+  duraklatmanın yönetici izni isteyip istemediği, tek örnek kilidi, kapanışta `%TEMP%\cullprint-spool` temizliği.
+
 ## Sonraki Adımlar
-1. **Windows test sonuçları** (kullanıcı 2026-09-20'de dönecek). Bakılacaklar: yazıcı ve USB algılama, kâğıt
+1. **Windows test sonuçları** (kullanıcı 2026-09-20'de test ediyor). Bakılacaklar: yazıcı ve USB algılama, kâğıt
    listesi, parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal, Windows'ta
    duraklatmanın yönetici izni isteyip istemediği, tek örnek kilidi, kapanışta `%TEMP%\cullprint-spool` temizliği.
    Sorun olursa `scripts\windows-tani.ps1` çıktısını (`cullprint-tani.txt`) iste. Yüzey özelliği sürücüde

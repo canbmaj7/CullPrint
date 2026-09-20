@@ -31,7 +31,9 @@
 ## Yapılacaklar (Sonraki İyileştirmeler)
 
 - [x] Windows yazdırma arka ucu yazıldı (`electron/print/windows.ts` + `windows.ps1`, 2026-09-19); protokol ve PrintTicket yardımcıları Linux'ta `pwsh` ile test edildi.
-- [ ] Windows'ta gerçek DS620 ile test.
+- [ ] Windows'ta gerçek DS620 ile test (2026-09-20'de başladı, sürüyor). Yazıcı/kâğıt/durum algılama doğrulandı;
+      kalan baskı sayısının Windows'ta okunamadığı kesinleşti (bkz. `aktifBaglam.md` → Windows Testi — Bulgular),
+      elle sayaç kalıyor ve rulo kartında bunu belirten not eklendi.
 - [ ] Oturum yedeği ve çökme sonrası kurtarma (plan: `planOturumYedegi.md`; önce açık sorular kullanıcıyla netleşecek).
 
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
