@@ -35,7 +35,10 @@
       `imagetoraster` dosyayı tanımayıp 0 baytlık raster üretiyor ve iş sessizce `canceled-at-device` ile
       düşüyordu. `.withMetadata({ density: 300 })` eklendi (`5814fde`); gerçek DS620 ile doğrulandı.
       Ayrıntı ve teşhis yöntemi: `aktifBaglam.md`.
-- [ ] Windows'ta gerçek DS620 ile test (2026-09-20'de başladı, sürüyor). Yazıcı/kâğıt/durum algılama doğrulandı;
+- [ ] Windows'ta gerçek DS620 ile test (2026-09-20'de başladı, sürüyor). **Açık sorun:** baskı çalışıyor
+      ama işler kuyrukta "sırada" görünmüyor, anında "Basıldı" oluyor ve İptal Et çıkmıyor; iş numarası
+      alınıyor, `System.Printing` işleri görüyor. İki düzeltme denendi (`8933dca`, `372d4d1`), ikisi de
+      yetmedi. Devam etmeden önce ölçüm yapılacak — ayrıntı ve komut: `aktifBaglam.md`. Yazıcı/kâğıt/durum algılama doğrulandı;
       kalan baskı sayısının Windows'ta okunamadığı kesinleşti (bkz. `aktifBaglam.md` → Windows Testi — Bulgular),
       elle sayaç kalıyor ve rulo kartında bunu belirten not eklendi.
 - [ ] Oturum yedeği ve çökme sonrası kurtarma (plan: `planOturumYedegi.md`; önce açık sorular kullanıcıyla netleşecek).

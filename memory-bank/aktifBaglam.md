@@ -136,6 +136,50 @@ yedeğiyle yapıldığı için bu fark edilmemişti.
 - **Doğrulama:** İş 92 ve 93 `job-completed-successfully` ile tamamlandı, yazıcı `now printing` durumuna geçti.
 - Bu arada firmware güncellemesinin ilgisi olmadığı da gösterildi (sorun veri yazıcıya ulaşmadan önce).
 
+## AÇIK SORUN: Windows'ta işler kuyrukta görünmüyor (2026-09-20, devam edecek)
+
+Windows'ta baskı **çalışıyor** (kâğıt çıkıyor) ve işler Windows'un kendi kuyruğunda görünüyor, ama
+CullPrint işi anında "Basıldı" işaretliyor: kuyrukta "sırada" görünmüyor, **İptal Et butonu çıkmıyor**.
+
+Kesinleşenler (kullanıcının makinesinde ölçüldü):
+- `System.Printing` API'si çalışıyor: `GetPrintQueues`, `GetPrintQueue`, `Get-PrintJob`, `Win32_PrintJob`
+  dördü de işleri görüyor (3-4 iş döndü). Belge adı biçimimiz doğru: `CullPrint spool_<...>.jpg`.
+- **İş numarası alınıyor**: kuyruk çekmecesinde `#<no>` görünüyor, yani `CP-Print` jobId buluyor ve
+  `cupsJobId` set ediliyor. Sorun numara bulmada değil.
+- Test yazıcı **duraklatılmışken** yapıldı, yani iş gerçekten kuyrukta bekliyordu; "Basıldı" kesin yanlış.
+- Makinede hata durumunda takılı eski bir iş var (JobId 54, "Hata | Yazdırılıyor", başka yazıcıda).
+
+Denenen ve YETMEYEN düzeltmeler (ikisi de mantıklıydı, ikisi de sorunu çözmedi):
+1. `8933dca` — baskı öncesi/sonrası kuyruk karşılaştırmasıyla yeni işi bulma (jobId zaten alınıyormuş).
+2. `372d4d1` — `CP-GetJobs`'a yazıcı/iş başına try-catch (tek bozuk yazıcı tüm kuyruğu düşürmesin diye).
+   Doğru bir sağlamlaştırma ama asıl sebep bu değilmiş.
+
+Kalan hipotez: `getQueue`'dan dönen kimlik (`<FullName>-<JobIdentifier>`) ile `executePrint`'in ürettiği
+`cupsJobId` (`<printerName>-<jobId>`) eşleşmiyor, ya da `host.call('CP-GetJobs')` zaman aşımına uğrayıp
+boş dönüyor (`windows.ts` catch → `[]`). Kuyruk boş dönünce `App.tsx`'teki senkronizasyon bekleyen işi
+"kuyruktan çıkmış, demek bitti" sayıp `completed` yapıyor (`App.tsx` ~187-228). Kod tarafında adlar
+tutarlı görünüyor (`CP-GetPrinters` ve `CP-GetJobs` ikisi de `$q.FullName` kullanıyor).
+
+**Sonraki adım — önce ölç, kod yazma.** Kullanıcı yazıcı duraklatılmışken 1 iş gönderip çekmecedeki
+`#<no>`yu not edecek, sonra şu komutu çalıştıracak (uygulamanın ürettiği kimliğin aynısını basar):
+
+```powershell
+$srv = New-Object System.Printing.LocalPrintServer
+$types = @([System.Printing.EnumeratedPrintQueueTypes]::Local,
+           [System.Printing.EnumeratedPrintQueueTypes]::Connections)
+foreach ($q in $srv.GetPrintQueues($types)) {
+  $jobs = $null
+  try { $jobs = @($q.GetPrintJobInfoCollection()) }
+  catch { "PATLIYOR -> $($q.FullName) : $($_.Exception.Message)"; continue }
+  if ($jobs.Count -eq 0) { "bos     -> $($q.FullName)"; continue }
+  foreach ($j in $jobs) { "kimlik  -> {0}-{1}   ad: {2}   durum: {3}" -f $q.FullName, $j.JobIdentifier, $j.Name, $j.JobStatus }
+}
+```
+
+Yorum: kimlik uyuşuyorsa sorun PowerShell köprüsünde (zaman aşımı) → `windows.ts` `getQueue`'un sessizce
+`[]` dönmesi yerine hatayı ayırt etmesi gerekir; `bos` ise bu API işi görmüyor → WMI `Win32_PrintJob`'a
+geçilir; yazıcı adı farklıysa kimlik biçimi düzeltilir. Uygulamadaki yazıcı adının tam yazılışı da sorulacak.
+
 ## Sonraki Adımlar
 1. **Windows test sonuçları** (kullanıcı 2026-09-20'de test ediyor). Bakılacaklar: yazıcı ve USB algılama, kâğıt
    listesi, parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal, Windows'ta
