@@ -42,7 +42,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
               key={photo.path}
               className={`filmstrip-item ${isSelected ? 'active' : ''} ${photo.printed ? 'printed' : ''}`}
               onClick={() => onSelect(index)}
-              title={`${photo.name} ${photo.printed ? '(Basıldı)' : ''}`}
+              title={`${photo.name}${photo.printed ? ` (${photo.printCount} kez basıldı)` : ''}`}
             >
               {/* Küçük Resim */}
               <div className="thumbnail-box">
@@ -54,10 +54,11 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
                   className="thumb-img"
                 />
 
-                {/* Basıldı Rozeti */}
+                {/* Basıldı Rozeti (kaç kez basıldığıyla birlikte) */}
                 {photo.printed && (
                   <div className="thumb-printed-badge">
-                    <Check size={11} strokeWidth={3} />
+                    <Check size={10} strokeWidth={3} />
+                    <span>{photo.printCount || 1}</span>
                   </div>
                 )}
 
