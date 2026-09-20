@@ -230,6 +230,14 @@ function CP-Print($p) {
     $page.PaperSize = $paper
   }
 
+  # Baskıdan sonra yeni işi ayırt edebilmek için kuyruğun mevcut hâli not edilir
+  $before = @{}
+  try {
+    $q0 = Get-CPQueue $p.printer
+    $q0.Refresh()
+    foreach ($j in $q0.GetPrintJobInfoCollection()) { $before[[int]$j.JobIdentifier] = $true }
+  } catch { }
+
   $img = [System.Drawing.Image]::FromFile($p.file)
   try {
     # Raster zaten kâğıt yönünde üretilir; yatay raster için sayfayı yatay çevir
@@ -270,15 +278,26 @@ function CP-Print($p) {
     $doc.Dispose()
   }
 
-  # Spooler işi belge adıyla bulunur (PrintDocument iş numarası döndürmez)
+  # PrintDocument iş numarası döndürmez, spooler işi de Print() dönerken henüz kuyrukta olmayabilir.
+  # Belge adı sürücüye göre değişebildiği için ad yalnızca ipucu: asıl ölçüt baskıdan önce kuyrukta
+  # olmayan yeni iştir. En fazla ~2 sn beklenir; bu sürede çıkmazsa iş zaten bitmiş demektir.
   $jobId = $null
-  try {
-    $q = Get-CPQueue $p.printer
-    $q.Refresh()
-    foreach ($j in $q.GetPrintJobInfoCollection()) {
-      if ($j.Name -eq $p.docName -and ($null -eq $jobId -or $j.JobIdentifier -gt $jobId)) { $jobId = $j.JobIdentifier }
-    }
-  } catch { }
+  for ($i = 0; $i -lt 40 -and $null -eq $jobId; $i++) {
+    try {
+      $q = Get-CPQueue $p.printer
+      $q.Refresh()
+      $named = $null
+      $newest = $null
+      foreach ($j in $q.GetPrintJobInfoCollection()) {
+        $id = [int]$j.JobIdentifier
+        if ($before.ContainsKey($id)) { continue }
+        if ($j.Name -eq $p.docName -and ($null -eq $named -or $id -gt $named)) { $named = $id }
+        if ($null -eq $newest -or $id -gt $newest) { $newest = $id }
+      }
+      if ($null -ne $named) { $jobId = $named } elseif ($null -ne $newest) { $jobId = $newest }
+    } catch { }
+    if ($null -eq $jobId) { Start-Sleep -Milliseconds 50 }
+  }
   [pscustomobject]@{ jobId = $jobId }
 }
 
