@@ -43,10 +43,11 @@ export async function renderPrintRasterFile(
   })
     .extract({ left, top, width, height })
     .resize(req.targetWidth, req.targetHeight, { fit: 'fill', kernel: 'lanczos3' })
-    // 4:4:4 KULLANMA: CUPS'un imagetoraster filtresi renk alt örneklemesi olmayan JPEG'i açamıyor,
-    // sessizce 0 baytlık raster üretiyor ve iş "canceled-at-device" ile düşüyor (gerçek DS620 ile
-    // doğrulandı: 4:2:0 ve 4:2:2 çalışıyor, 4:4:4 çalışmıyor). 300 DPI dye-sub baskıda 4:2:2'nin
-    // görünür bir kaybı yok.
-    .jpeg({ quality: 96, chromaSubsampling: '4:2:2' })
+    // withMetadata ŞART: sharp başlıksız JPEG yazıyor (SOI'den sonra doğrudan DQT). CUPS'un
+    // imagetoraster filtresi böyle bir dosyayı açamıyor, sessizce 0 baytlık raster üretiyor ve iş
+    // "canceled-at-device" ile düşüyor — hiçbir hata görünmeden. withMetadata bir APP başlığı
+    // (density) yazdırır ve filtre dosyayı tanır. Gerçek DS620 ile doğrulandı.
+    .withMetadata({ density: 300 })
+    .jpeg({ quality: 96, chromaSubsampling: '4:4:4' })
     .toFile(outPath);
 }
