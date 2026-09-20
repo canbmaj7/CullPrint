@@ -31,6 +31,10 @@
 ## Yapılacaklar (Sonraki İyileştirmeler)
 
 - [x] Windows yazdırma arka ucu yazıldı (`electron/print/windows.ts` + `windows.ps1`, 2026-09-19); protokol ve PrintTicket yardımcıları Linux'ta `pwsh` ile test edildi.
+- [x] **Linux'ta hiçbir baskının çıkmaması çözüldü (2026-09-20):** sharp başlıksız JPEG yazıyordu, CUPS
+      `imagetoraster` dosyayı tanımayıp 0 baytlık raster üretiyor ve iş sessizce `canceled-at-device` ile
+      düşüyordu. `.withMetadata({ density: 300 })` eklendi (`5814fde`); gerçek DS620 ile doğrulandı.
+      Ayrıntı ve teşhis yöntemi: `aktifBaglam.md`.
 - [ ] Windows'ta gerçek DS620 ile test (2026-09-20'de başladı, sürüyor). Yazıcı/kâğıt/durum algılama doğrulandı;
       kalan baskı sayısının Windows'ta okunamadığı kesinleşti (bkz. `aktifBaglam.md` → Windows Testi — Bulgular),
       elle sayaç kalıyor ve rulo kartında bunu belirten not eklendi.

@@ -114,6 +114,28 @@ Test edilen paket: Actions run `35460504144` (commit `1b7be65`) taşınabilir `C
 - **Henüz bakılmadı:** parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal,
   duraklatmanın yönetici izni isteyip istemediği, tek örnek kilidi, kapanışta `%TEMP%\cullprint-spool` temizliği.
 
+## Linux'ta Hiçbir Baskının Çıkmaması (2026-09-20, çözüldü)
+
+sharp raster yolu (2026-09-19) devreye girdiğinden beri Linux'ta **hiçbir baskı kâğıda çıkmıyordu**;
+işler sessizce `canceled-at-device` ile düşüyordu. 19 Eylül'deki başarılı fiziksel test canvas
+yedeğiyle yapıldığı için bu fark edilmemişti.
+
+- **Sebep:** sharp varsayılan olarak APP bloğu (JFIF/EXIF) yazmaz, dosya `ffd8 ffdb` ile başlar.
+  CUPS'un `imagetoraster` filtresi böyle bir JPEG'i tanıyamıyor ve **hata vermeden 0 baytlık raster**
+  üretiyor; backend açacak dosya bulamayınca işi iptal ediyor. Günlükte tek ipucu
+  `Gutenprint: stats 0B` ve `Backend gutenprint53+usb returned status 5 (cancel job)`.
+- **Çözüm:** `electron/raster.ts` → `.withMetadata({ density: 300 })` (commit `5814fde`).
+  `chromaSubsampling: '4:4:4'` korundu, kalite kaybı yok; 300 DPI bilgisi de dosyaya girmiş oldu.
+- **Yanlış iz (tekrarlanmasın):** İlk teşhis "4:4:4 sorunlu" idi; çünkü karşılaştırmadaki çalışan dosya
+  ImageMagick'ten geçirilmişti ve dönüşüm JFIF başlığını da ekliyordu. Doğrudan sharp'tan çıkan 4:2:0
+  da 0 bayt üretiyor. Ayrıca sharp `chromaSubsampling` için yalnızca `'4:2:0'` ve `'4:4:4'` kabul eder.
+- **Teşhis yöntemi (yine işe yarar):** `cupsfilter -p /etc/cups/ppd/<yazıcı>.ppd -m application/vnd.cups-raster
+  <dosya.jpg> | wc -c` yazıcıya hiç dokunmadan filtre zincirini test eder; 0 bayt = dosya tanınmıyor.
+  Zincirin nerede koptuğunu görmek için: spool klasörü (raster üretildi mi) → `lpstat -o` (CUPS'a ulaştı mı)
+  → `lpstat -W completed -l -o` (`Alerts:` satırı) → `/var/log/cups/error_log`.
+- **Doğrulama:** İş 92 ve 93 `job-completed-successfully` ile tamamlandı, yazıcı `now printing` durumuna geçti.
+- Bu arada firmware güncellemesinin ilgisi olmadığı da gösterildi (sorun veri yazıcıya ulaşmadan önce).
+
 ## Sonraki Adımlar
 1. **Windows test sonuçları** (kullanıcı 2026-09-20'de test ediyor). Bakılacaklar: yazıcı ve USB algılama, kâğıt
    listesi, parlak/mat gerçekten değişiyor mu, kenarsız baskı ölçeği, kopya, iptal/tümünü iptal, Windows'ta
