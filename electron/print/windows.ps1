@@ -301,18 +301,27 @@ function CP-Print($p) {
   [pscustomobject]@{ jobId = $jobId }
 }
 
+# Tek bir yazıcı ya da tek bir bozuk iş yüzünden kuyruğun tamamı kaybolmamalı: kuyruk boş dönerse
+# renderer bekleyen işleri "kuyruktan çıkmış, demek bitti" sayıp anında tamamlandı işaretler.
+# Erişilemeyen yazıcılar (çevrimdışı ağ yazıcısı, hata durumunda takılı iş) atlanır, diğerleri gelir.
 function CP-GetJobs($p) {
   foreach ($q in (Get-CPQueueList)) {
-    foreach ($j in $q.GetPrintJobInfoCollection()) {
-      [pscustomobject]@{
-        printer   = $q.FullName
-        id        = $j.JobIdentifier
-        name      = $j.Name
-        user      = $j.Submitter
-        size      = $j.JobSize
-        submitted = $j.TimeJobSubmitted.ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss')
-        status    = $j.JobStatus.ToString()
-      }
+    $jobs = $null
+    try { $jobs = @($q.GetPrintJobInfoCollection()) } catch { continue }
+    foreach ($j in $jobs) {
+      try {
+        $submitted = ''
+        try { $submitted = $j.TimeJobSubmitted.ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss') } catch { }
+        [pscustomobject]@{
+          printer   = $q.FullName
+          id        = $j.JobIdentifier
+          name      = [string]$j.Name
+          user      = [string]$j.Submitter
+          size      = [int]$j.JobSize
+          submitted = $submitted
+          status    = [string]$j.JobStatus
+        }
+      } catch { continue }
     }
   }
 }
