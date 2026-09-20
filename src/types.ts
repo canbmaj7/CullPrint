@@ -36,6 +36,9 @@ export interface PrintJob {
   cupsJobId?: string;
   photoName: string;
   photoPath: string;
+  // "Basıldı" sayacının anahtarı (ad + boyut): iş oluşturulurken sabitlenir ki fotoğraf listeden
+  // çıksa bile iptal edildiğinde sayaç doğru kayıttan düşülsün
+  photoKey: string;
   copies: number;
   finish: string;
   mediaSize: string;

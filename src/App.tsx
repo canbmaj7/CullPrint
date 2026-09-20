@@ -13,9 +13,17 @@ import { QueueDrawer } from './components/QueueDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { FileItem } from './vite-env';
 
-// Fotoğraf başına basılan kopya sayısı, dosya yoluna göre kalıcı. Uygulama kapanıp açılınca ya da
-// klasör yeniden açılınca "Basıldı" rozetleri kaybolup aynı fotoğraf iki kez basılmasın diye.
+// Fotoğraf başına basılan kopya sayısı kalıcıdır: uygulama kapanıp açılınca ya da klasör yeniden
+// açılınca "Basıldı" rozetleri kaybolup aynı fotoğraf iki kez basılmasın diye.
 const PRINTED_STORAGE_KEY = 'cullprint_printed_counts';
+
+// Anahtar dosya yolu DEĞİL, dosyanın kimliğidir: aynı kare SD karttan da diske kopyalanmış hâlinden
+// de açılabilir, kartın bağlanma noktası (ör. /run/media/can/<ETİKET>/) her takılışta değişebilir.
+// Yol kullanılırsa bu durumların her biri ayrı fotoğraf sayılıp rozet kaybolur. Ad + bayt boyutu
+// kopyalamada değişmez; değiştirilme tarihi kopyalarken değişebildiği için anahtara girmez.
+function photoKey(file: { name: string; size: number }): string {
+  return `${file.name}|${file.size}`;
+}
 
 function loadPrintedCounts(): Record<string, number> {
   try {
@@ -25,13 +33,13 @@ function loadPrintedCounts(): Record<string, number> {
   }
 }
 
-function recordPrintedCount(photoPath: string, delta: number): number {
+function recordPrintedCount(key: string, delta: number): number {
   const counts = loadPrintedCounts();
-  const next = Math.max(0, (counts[photoPath] || 0) + delta);
+  const next = Math.max(0, (counts[key] || 0) + delta);
   if (next > 0) {
-    counts[photoPath] = next;
+    counts[key] = next;
   } else {
-    delete counts[photoPath];
+    delete counts[key];
   }
   try {
     localStorage.setItem(PRINTED_STORAGE_KEY, JSON.stringify(counts));
@@ -205,9 +213,9 @@ export const App: React.FC = () => {
         // Uygulama dışından iptal edilen iş basılmadı: rozeti ve rulo sayacını geri al
         for (const job of finishedJobs) {
           if (outcomes.get(job.id)?.state !== 'canceled') continue;
-          const printCount = recordPrintedCount(job.photoPath, -job.copies);
+          const printCount = recordPrintedCount(job.photoKey, -job.copies);
           setPhotos((prev) =>
-            prev.map((p) => (p.path === job.photoPath ? { ...p, printed: printCount > 0, printCount } : p))
+            prev.map((p) => (photoKey(p) === job.photoKey ? { ...p, printed: printCount > 0, printCount } : p))
           );
           setRollPrintsCount((prev) => Math.max(0, prev - job.copies));
         }
@@ -299,18 +307,38 @@ export const App: React.FC = () => {
   // Yardımcı: Fotoğraf listesini güncelleme
   const addFilesToPhotos = useCallback((newFiles: FileItem[], isAppend = false) => {
     const printedCounts = loadPrintedCounts();
-    const newPhotos: PhotoItem[] = newFiles.map((file) => ({
-      ...file,
-      printed: (printedCounts[file.path] || 0) > 0,
-      printCount: printedCounts[file.path] || 0,
-      cropOffsetX: 0,
-      cropOffsetY: 0,
-      userRotation: 0,
-      orientation: file.orientation ?? 1,
-      width: file.width || 6000,
-      height: file.height || 4000,
-      isLandscape: file.isLandscape ?? ((file.width || 6000) >= (file.height || 4000)),
-    }));
+    // Eski sürümler yol anahtarıyla kaydediyordu: o kayıtlar ilk açılışta yeni anahtara taşınır
+    let migrated = false;
+    const countOf = (file: FileItem) => {
+      const key = photoKey(file);
+      if (printedCounts[key] === undefined && printedCounts[file.path] !== undefined) {
+        printedCounts[key] = printedCounts[file.path];
+        delete printedCounts[file.path];
+        migrated = true;
+      }
+      return printedCounts[key] || 0;
+    };
+    const newPhotos: PhotoItem[] = newFiles.map((file) => {
+      const printCount = countOf(file);
+      return {
+        ...file,
+        printed: printCount > 0,
+        printCount,
+        cropOffsetX: 0,
+        cropOffsetY: 0,
+        userRotation: 0,
+        orientation: file.orientation ?? 1,
+        width: file.width || 6000,
+        height: file.height || 4000,
+        isLandscape: file.isLandscape ?? ((file.width || 6000) >= (file.height || 4000)),
+      };
+    });
+
+    if (migrated) {
+      try {
+        localStorage.setItem(PRINTED_STORAGE_KEY, JSON.stringify(printedCounts));
+      } catch {}
+    }
 
     setPhotos((prev) => {
       const merged = isAppend ? [...prev, ...newPhotos] : newPhotos;
@@ -591,9 +619,9 @@ export const App: React.FC = () => {
               )
             );
             // Basıldı rozeti (kalıcı kayıttan)
-            const printCount = recordPrintedCount(job.photoPath, job.copies);
+            const printCount = recordPrintedCount(job.photoKey, job.copies);
             setPhotos((prev) =>
-              prev.map((p) => (p.path === job.photoPath ? { ...p, printed: true, printCount } : p))
+              prev.map((p) => (photoKey(p) === job.photoKey ? { ...p, printed: true, printCount } : p))
             );
             setLastPrintStatus({
               success: true,
@@ -637,6 +665,7 @@ export const App: React.FC = () => {
         id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         photoName: currentPhoto.name,
         photoPath: currentPhoto.path,
+        photoKey: photoKey(currentPhoto),
         copies,
         finish: printerSettings.finishValue || finish,
         mediaSize: printerSettings.mediaSize,
@@ -701,10 +730,10 @@ export const App: React.FC = () => {
           )
         );
         // İptal edilen iş basılmadı: rozeti ve rulo sayacını geri al
-        const printCount = recordPrintedCount(job.photoPath, -job.copies);
+        const printCount = recordPrintedCount(job.photoKey, -job.copies);
         setPhotos((prev) =>
           prev.map((p) =>
-            p.path === job.photoPath ? { ...p, printed: printCount > 0, printCount } : p
+            photoKey(p) === job.photoKey ? { ...p, printed: printCount > 0, printCount } : p
           )
         );
         setRollPrintsCount((prev) => Math.max(0, prev - job.copies));
