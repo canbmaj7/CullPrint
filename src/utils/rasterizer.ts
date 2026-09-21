@@ -5,7 +5,8 @@
  * Asıl yol ana süreçteki sharp'tır (libvips, arayüzü dondurmaz, orijinal dosyadan okur).
  * sharp yüklenemezse renderer'da canvas ile üretilir (tam çözünürlüklü media:// orijinalinden).
  */
-import { computeCropRect, getRasterSize } from './crop';
+import { computeCropRect, computeFitRect, FIT_BACKGROUND, getRasterSize } from './crop';
+import { FitMode } from '../types';
 
 export { resolveMediaPixelSize } from './media';
 
@@ -16,6 +17,7 @@ export interface PrintRasterParams {
   cropOffsetY: number; // -100 ile 100 arası yüzde
   userRotation: number; // 0, 90, 180, 270
   mediaSizeToken: string;
+  fitMode?: FitMode; // 'fit' = kırpma yok, kenarlarda beyaz şerit; varsayılan 'fill'
   dpi?: number;
 }
 
@@ -29,6 +31,7 @@ export async function createPrintFile(params: PrintRasterParams): Promise<string
     cropOffsetX: params.cropOffsetX,
     cropOffsetY: params.cropOffsetY,
     userRotation: params.userRotation,
+    fitMode: params.fitMode,
   });
   if (spoolPath) return spoolPath;
 
@@ -40,6 +43,7 @@ export async function createPrintFile(params: PrintRasterParams): Promise<string
     cropOffsetX: params.cropOffsetX,
     cropOffsetY: params.cropOffsetY,
     userRotation: params.userRotation,
+    fitMode: params.fitMode,
   });
   return window.electronAPI!.saveTempPrintFile(base64);
 }
@@ -51,6 +55,7 @@ interface CanvasRasterParams {
   cropOffsetX: number;
   cropOffsetY: number;
   userRotation: number;
+  fitMode?: FitMode;
 }
 
 function generatePrintRaster({
@@ -60,6 +65,7 @@ function generatePrintRaster({
   cropOffsetX,
   cropOffsetY,
   userRotation,
+  fitMode,
 }: CanvasRasterParams): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -87,8 +93,6 @@ function generatePrintRaster({
         const effectiveImgW = isRotated90or270 ? imgH : imgW;
         const effectiveImgH = isRotated90or270 ? imgW : imgH;
 
-        const crop = computeCropRect(effectiveImgW, effectiveImgH, targetWidth, targetHeight, cropOffsetX, cropOffsetY);
-
         // Geçici bir sanal canvas üzerinde döndürmeyi uygula
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = effectiveImgW;
@@ -113,7 +117,16 @@ function generatePrintRaster({
         tempCtx.drawImage(img, 0, 0);
         tempCtx.restore();
 
-        ctx.drawImage(tempCanvas, crop.x, crop.y, crop.width, crop.height, 0, 0, targetWidth, targetHeight);
+        if (fitMode === 'fit') {
+          // Sığdırma: fotoğrafın tamamı kâğıda ortalanır, artan kenarlar beyaz kalır (kırpma yok)
+          const dest = computeFitRect(effectiveImgW, effectiveImgH, targetWidth, targetHeight);
+          ctx.fillStyle = FIT_BACKGROUND;
+          ctx.fillRect(0, 0, targetWidth, targetHeight);
+          ctx.drawImage(tempCanvas, 0, 0, effectiveImgW, effectiveImgH, dest.x, dest.y, dest.width, dest.height);
+        } else {
+          const crop = computeCropRect(effectiveImgW, effectiveImgH, targetWidth, targetHeight, cropOffsetX, cropOffsetY);
+          ctx.drawImage(tempCanvas, crop.x, crop.y, crop.width, crop.height, 0, 0, targetWidth, targetHeight);
+        }
 
         // Yüksek kaliteli JPEG çıktısı (0.96)
         resolve(canvas.toDataURL('image/jpeg', 0.96));

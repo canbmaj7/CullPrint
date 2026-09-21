@@ -1,23 +1,27 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw } from 'lucide-react';
-import { PhotoItem } from '../types';
+import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw, Maximize, Crop } from 'lucide-react';
+import { FitMode, PhotoItem } from '../types';
 import { getCropAxis, getTargetRatio } from '../utils/crop';
 import { formatPaperSize } from '../utils/media';
 
 interface CropViewerProps {
   photo: PhotoItem | null;
   mediaSize: string; // seçili kâğıt: çerçeve oranı ve etiket buradan
+  fitMode: FitMode; // bu fotoğrafın etkin kadraj modu (kendi seçimi ya da Ayarlar varsayılanı)
   onRotate: () => void;
   onAdjustCrop: (deltaX: number, deltaY: number) => void;
   onResetCrop: () => void;
+  onToggleFit: () => void;
 }
 
 export const CropViewer: React.FC<CropViewerProps> = ({
   photo,
   mediaSize,
+  fitMode,
   onRotate,
   onAdjustCrop,
   onResetCrop,
+  onToggleFit,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -56,6 +60,9 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   // Seçili kâğıdın oranı (6x8 → 4:3, 4x6 → 3:2); baskı raster'ı da aynı oranla kırpılır
   const targetRatio = getTargetRatio(effectiveIsLandscape, mediaSize);
 
+  // Sığdırma modunda kırpma yok: kadraj kaydırma, ofsetler ve kesim ipuçları devre dışı
+  const isFit = fitMode === 'fit';
+
   // Döndürme sonrası görselin oranı: kağıttan genişse yanlardan, uzunsa üst/alttan kırpılır
   // (computeCropRect ile aynı kural)
   const cropAxis = getCropAxis(photo, mediaSize);
@@ -75,12 +82,13 @@ export const CropViewer: React.FC<CropViewerProps> = ({
 
   // Mouse ile sürükleyerek kadraj kaydırma
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (isFit) return;
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || isFit) return;
     const deltaX = e.clientX - dragStart.x;
     const deltaY = e.clientY - dragStart.y;
 
@@ -117,6 +125,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
           {photo.width && photo.height && (
             <span className="dim-chip">{photo.width} × {photo.height}</span>
           )}
+          {isFit && <span className="fit-chip" title="Fotoğrafın tamamı basılır, kenarlarda beyaz boşluk kalır">SIĞDIR</span>}
         </div>
 
         {photo.printed && (
@@ -130,7 +139,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
       {/* Ana Fotoğraf ve 6x8 Kırpma Alanı */}
       <div className="canvas-wrapper">
         <div
-          className="aspect-box"
+          className={`aspect-box ${isFit ? 'is-fit' : ''}`}
           style={
             {
               aspectRatio: `${targetRatio}`,
@@ -152,8 +161,9 @@ export const CropViewer: React.FC<CropViewerProps> = ({
                 width: isRotated90 ? `${100 / targetRatio}%` : '100%',
                 height: isRotated90 ? `${100 * targetRatio}%` : '100%',
                 transform: `translate(-50%, -50%) rotate(${totalRotation}deg)`,
-                objectFit: 'cover',
-                objectPosition: `${posX}% ${posY}%`,
+                // Sığdırmada görselin tamamı kutuya girer (kırpma yok), doldurmada kutuyu kaplar
+                objectFit: isFit ? 'contain' : 'cover',
+                objectPosition: isFit ? '50% 50%' : `${posX}% ${posY}%`,
               }}
             />
           </div>
@@ -168,7 +178,12 @@ export const CropViewer: React.FC<CropViewerProps> = ({
       {/* Alt Hızlı Kontroller (Döndür / Kadraj Kaydır) */}
       <div className="viewer-bottom-controls">
         <div className="crop-tip-pill">
-          {cropAxis === 'x' ? (
+          {isFit ? (
+            <>
+              <Maximize size={14} />
+              <span>Fotoğrafın <b>tamamı</b> basılır; kenarlarda beyaz boşluk kalır. Kırpmak için <b>F</b></span>
+            </>
+          ) : cropAxis === 'x' ? (
             <>
               <MoveHorizontal size={14} />
               <span>Kadrajı sola/sağa kaydırmak için <b>Yukarı/Aşağı</b> okları kullanın veya fareyle sürükleyin</span>
@@ -182,7 +197,20 @@ export const CropViewer: React.FC<CropViewerProps> = ({
         </div>
 
         <div className="control-btn-group">
-          {(photo.cropOffsetX !== 0 || photo.cropOffsetY !== 0) && (
+          <button
+            className={`action-btn ${isFit ? 'active' : ''}`}
+            onClick={onToggleFit}
+            title={
+              isFit
+                ? 'Kâğıdı doldur: kenarlardan kırparak kâğıdı tamamen doldur (F)'
+                : 'Sayfaya sığdır: fotoğrafın tamamı bassın, kenarlarda beyaz boşluk kalsın (F)'
+            }
+          >
+            {isFit ? <Crop size={14} /> : <Maximize size={14} />}
+            <span>{isFit ? 'Kırp (F)' : 'Sığdır (F)'}</span>
+          </button>
+
+          {!isFit && (photo.cropOffsetX !== 0 || photo.cropOffsetY !== 0) && (
             <button
               className="action-btn text-btn"
               onClick={onResetCrop}

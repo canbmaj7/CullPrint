@@ -1,6 +1,7 @@
 // Baskı raster'ı ana süreçte sharp (libvips) ile: arayüz iş parçacığını dondurmaz, orijinal dosyadan okur.
 // Kırpma hesabı önizlemeyle ortaktır (src/utils/crop.ts → computeCropRect): ekranda görülen = basılan.
-import { computeCropRect } from '../src/utils/crop';
+import { computeCropRect, FIT_BACKGROUND } from '../src/utils/crop';
+import type { FitMode } from '../src/types';
 
 export interface RasterRequest {
   filePath: string;
@@ -9,6 +10,7 @@ export interface RasterRequest {
   cropOffsetX: number;
   cropOffsetY: number;
   userRotation: number;
+  fitMode?: FitMode; // 'fit' = kırpma yok, kenarlarda beyaz şerit; varsayılan 'fill'
 }
 
 export async function renderPrintRasterFile(
@@ -24,7 +26,24 @@ export async function renderPrintRasterFile(
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  // 2. Önizlemeyle aynı kırpma hesabı, hedef boyuta ölçekleme
+  const source = sharp(rotated.data, {
+    raw: { width: rotated.info.width, height: rotated.info.height, channels: rotated.info.channels },
+  });
+
+  // 2a. Sığdırma modu: kırpma yok, fotoğrafın tamamı kâğıda ortalanır, artan kenarlar beyaz kalır
+  if (req.fitMode === 'fit') {
+    await writeJpeg(
+      source.resize(req.targetWidth, req.targetHeight, {
+        fit: 'contain',
+        background: FIT_BACKGROUND,
+        kernel: 'lanczos3',
+      }),
+      outPath
+    );
+    return;
+  }
+
+  // 2b. Doldurma modu: önizlemeyle aynı kırpma hesabı, hedef boyuta ölçekleme
   const crop = computeCropRect(
     rotated.info.width,
     rotated.info.height,
@@ -38,15 +57,24 @@ export async function renderPrintRasterFile(
   const width = Math.max(1, Math.min(rotated.info.width - left, Math.round(crop.width)));
   const height = Math.max(1, Math.min(rotated.info.height - top, Math.round(crop.height)));
 
-  await sharp(rotated.data, {
-    raw: { width: rotated.info.width, height: rotated.info.height, channels: rotated.info.channels },
-  })
-    .extract({ left, top, width, height })
-    .resize(req.targetWidth, req.targetHeight, { fit: 'fill', kernel: 'lanczos3' })
-    // withMetadata ŞART: sharp başlıksız JPEG yazıyor (SOI'den sonra doğrudan DQT). CUPS'un
-    // imagetoraster filtresi böyle bir dosyayı açamıyor, sessizce 0 baytlık raster üretiyor ve iş
-    // "canceled-at-device" ile düşüyor — hiçbir hata görünmeden. withMetadata bir APP başlığı
-    // (density) yazdırır ve filtre dosyayı tanır. Gerçek DS620 ile doğrulandı.
+  await writeJpeg(
+    source
+      .extract({ left, top, width, height })
+      .resize(req.targetWidth, req.targetHeight, { fit: 'fill', kernel: 'lanczos3' }),
+    outPath
+  );
+}
+
+/**
+ * Baskı JPEG'ini diske yazar. Her iki kadraj modu da buradan geçer: withMetadata kuralı tek yerde kalsın.
+ *
+ * withMetadata ŞART: sharp başlıksız JPEG yazıyor (SOI'den sonra doğrudan DQT). CUPS'un
+ * imagetoraster filtresi böyle bir dosyayı açamıyor, sessizce 0 baytlık raster üretiyor ve iş
+ * "canceled-at-device" ile düşüyor — hiçbir hata görünmeden. withMetadata bir APP başlığı
+ * (density) yazdırır ve filtre dosyayı tanır. Gerçek DS620 ile doğrulandı.
+ */
+function writeJpeg(pipeline: import('sharp').Sharp, outPath: string): Promise<unknown> {
+  return pipeline
     .withMetadata({ density: 300 })
     .jpeg({ quality: 96, chromaSubsampling: '4:4:4' })
     .toFile(outPath);

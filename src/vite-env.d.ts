@@ -79,6 +79,7 @@ export interface IElectronAPI {
     cropOffsetX: number;
     cropOffsetY: number;
     userRotation: number;
+    fitMode?: 'fill' | 'fit';
   }) => Promise<string | null>;
   executePrint: (params: PrintJobParams) => Promise<{ success: boolean; output: string; cupsJobId?: string; error?: string }>;
   cancelPrintJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;

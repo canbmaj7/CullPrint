@@ -71,6 +71,7 @@ export interface RenderRasterParams {
   cropOffsetX: number;
   cropOffsetY: number;
   userRotation: number;
+  fitMode?: 'fill' | 'fit';
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {

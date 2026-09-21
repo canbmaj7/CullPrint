@@ -1,5 +1,13 @@
-import { PhotoItem } from '../types';
+import { FitMode, PhotoItem } from '../types';
 import { resolveMediaPixelSize } from './media';
+
+/** Sığdırma modunda boş kalan kenarların rengi (sharp flatten, canvas fill ve önizleme aynı değeri kullanır) */
+export const FIT_BACKGROUND = '#ffffff';
+
+/** Fotoğrafın etkin modu: kendi seçimi yoksa Ayarlar'daki varsayılan, o da yoksa 'fill' */
+export function getFitMode(photo: PhotoItem | null | undefined, defaultMode?: FitMode): FitMode {
+  return photo?.fitMode ?? defaultMode ?? 'fill';
+}
 
 /**
  * Seçili kâğıdın dikey konumdaki en/boy oranı (ör. 6x8 → 0.75, 4x6 → 0.667).
@@ -55,6 +63,22 @@ export function computeCropRect(
   const height = sourceWidth / targetRatio;
   const maxShift = (sourceHeight - height) / 2;
   return { x: 0, y: maxShift + (cropOffsetY / 100) * maxShift, width: sourceWidth, height };
+}
+
+/**
+ * Sığdırma modunda görselin hedef kâğıt içinde kaplayacağı alan (ortalanmış, kırpılmamış).
+ * Artan kenarlar FIT_BACKGROUND ile doldurulur. sharp yolunda karşılığı `fit: 'contain'`.
+ */
+export function computeFitRect(
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number
+): { x: number; y: number; width: number; height: number } {
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  return { x: (targetWidth - width) / 2, y: (targetHeight - height) / 2, width, height };
 }
 
 /** Kâğıt boyutu ve etkin yöne göre baskı raster'ının piksel boyutu */

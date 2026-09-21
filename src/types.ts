@@ -1,3 +1,10 @@
+/**
+ * Fotoğrafın kâğıda oturma biçimi.
+ * 'fill': kâğıt tamamen dolar, taşan kenarlar kesilir (varsayılan, kadraj kaydırma burada anlamlı).
+ * 'fit':  fotoğrafın tamamı basılır, oran tutmadığı için kısa kenarlarda beyaz şerit kalır.
+ */
+export type FitMode = 'fill' | 'fit';
+
 export interface PhotoItem {
   name: string;
   path: string;
@@ -12,6 +19,7 @@ export interface PhotoItem {
   cropOffsetY: number; // -100 to 100 percentage offset for vertical crop
   cropOffsetX: number; // -100 to 100 percentage offset for horizontal crop
   userRotation: number; // 0, 90, 180, 270
+  fitMode?: FitMode; // tanımsız = Ayarlar'daki varsayılan (F tuşu bu fotoğrafa özel geçer)
 }
 
 export type FilterMode = 'all' | 'unprinted' | 'printed';
@@ -48,6 +56,7 @@ export interface PrintJob {
   cropOffsetX: number;
   cropOffsetY: number;
   userRotation: number;
+  fitMode: FitMode; // baskı anında sabitlenir; tekrar basmada da aynı kalır
 }
 
 export interface PrinterOptionChoice {
@@ -73,6 +82,7 @@ export interface PrinterSettings {
   mediaSize: string;
   finishOptionName?: string;
   finishValue?: string;
+  fitMode?: FitMode; // varsayılan kadraj modu; fotoğraf başına F ile geçici olarak değiştirilebilir
 }
 
 export interface CupsJob {

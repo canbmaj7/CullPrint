@@ -92,6 +92,31 @@ onlara göre düzeltme yapılacak. Uygulama artık yazıcıdan bağımsız sunul
     - **Oturum temizliği (2026-09-19):** Kuyruk/geçmiş artık kalıcı değil; kuyruk rozeti yalnızca bekleyen işleri sayar. Geçici JPEG'ler (spool + küçük resim önbelleği) `will-quit`'te ve açılışta silinir; 1 GB önbellek sınırı kaldırıldı (önbellek çalıştırma başına). Tek örnek kilidi eklendi. Kuyruk çekmecesi 240px küçük resim kullanır (26 MP orijinal kasıyordu); "Tümünü İptal Et" ve hazırlanan işin iptali eklendi.
     - **Planlanan: Oturum yedeği / çökme kurtarma** → `planOturumYedegi.md` (kodlanmadı, açık sorular var).
 
+## Kadraj Modu: Sayfaya Sığdır (2026-09-21)
+
+Kullanıcı isteği: Windows'taki "sayfaya sığdır" seçeneğinin karşılığı. Artık iki kadraj modu var:
+
+- **`fill` (varsayılan, eski davranış):** kâğıt tamamen dolar, taşan kenarlar kesilir. Kadraj kaydırma
+  (ok tuşları, fare) yalnızca bu modda anlamlı.
+- **`fit` (yeni):** fotoğrafın tamamı basılır, oran tutmadığında kısa kenarlarda **beyaz** şerit kalır.
+  Boşluk rengi `FIT_BACKGROUND` (`src/utils/crop.ts`) — sharp, canvas ve önizleme aynı sabiti kullanır.
+
+Nerede: Ayarlar Modalı → "Kadraj Modu" (yazıcı başına `localStorage`'da varsayılan olarak saklanır) ve
+fotoğraf başına **`F`** tuşu / önizlemedeki "Sığdır (F)" butonu. Fotoğrafın kendi seçimi varsayılanı ezer
+(`getFitMode(photo, printerSettings.fitMode)`); mod baskı anında `PrintJob.fitMode`'a sabitlenir, tekrar
+basmada korunur. Sığdırma modunda kadraj kaydırma ve "Sıfırla (C)" gizlenir (kırpma yok, kaydıracak bir şey yok).
+
+Uygulama: `electron/raster.ts` sığdırmada `extract` yapmaz, doğrudan `resize(fit: 'contain', background)`
+kullanır; JPEG yazımı iki moda da ortak `writeJpeg()`'ten geçer, böylece `withMetadata({ density: 300 })`
+kuralı tek yerde kalır. Canvas yedeği (`src/utils/rasterizer.ts`) `computeFitRect` + beyaz `fillRect` ile
+aynı sonucu üretir. Önizlemede tek fark `objectFit: contain` + `.aspect-box.is-fit` beyaz zemini — 90/270°
+döndürme hesabı ikisinde de aynı çalışır.
+
+**Doğrulandı (2026-09-21, gerçek dosyayla, kâğıt harcanmadan):** 6240x4160 (3:2) yatay fotoğraf → 2400x1800
+(6x8 yatay) raster. Sığdırmada üst/alt şerit tam 100px ve tam beyaz (255,255,255), doldurmada dört kenar da
+fotoğraf. Her iki dosya da `ffd8 ffe1` ile başlıyor (APP1 var) ve `cupsfilter ... | wc -c` **95800 bayt**
+döndürüyor — başlıksız JPEG tuzağı yeni yolda da tekrarlamıyor. Yazıcıda fiziksel test yapılmadı.
+
 ## Windows Testi — Bulgular (2026-09-20, sürüyor)
 
 Test edilen paket: Actions run `35460504144` (commit `1b7be65`) taşınabilir `CullPrint 1.0.0.exe`.

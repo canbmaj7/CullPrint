@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UploadCloud } from 'lucide-react';
-import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings } from './types';
+import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings, FitMode } from './types';
 import { createPrintFile } from './utils/rasterizer';
-import { getCropAxis } from './utils/crop';
+import { getCropAxis, getFitMode } from './utils/crop';
 import { finishDisplayName } from './utils/finish';
 import { defaultRollCapacity, formatPaperSize } from './utils/media';
 import { Header } from './components/Header';
@@ -107,6 +107,7 @@ export const App: React.FC = () => {
     mediaSize: 'w432h576',
     finishOptionName: 'StpLaminate',
     finishValue: 'Glossy',
+    fitMode: 'fill',
   });
 
   // Seçili yazıcıya göre kayıtlı ayarları yükle
@@ -122,10 +123,10 @@ export const App: React.FC = () => {
           setFinish(parsed.finishValue);
         }
       } catch {
-        setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
+        setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy', fitMode: 'fill' });
       }
     } else {
-      setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
+      setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy', fitMode: 'fill' });
     }
   }, [selectedPrinter]);
 
@@ -466,6 +467,9 @@ export const App: React.FC = () => {
 
   // Seçili aktif fotoğraf
   const currentPhoto = filteredPhotos[selectedIndex] || null;
+
+  // Bu fotoğrafın etkin kadraj modu: kendi seçimi (F ile) yoksa Ayarlar'daki varsayılan
+  const currentFitMode = getFitMode(currentPhoto, printerSettings.fitMode);
   // Yukarıdaki efektten sonra çalışır: liste değişiminde önce eski görüntülenen fotoğraf okunur
   useEffect(() => {
     viewedPathRef.current = currentPhoto?.path ?? null;
@@ -523,6 +527,14 @@ export const App: React.FC = () => {
       )
     );
   }, [currentPhoto]);
+
+  // Sayfaya sığdır ↔ kâğıdı doldur: yalnızca bu fotoğraf için. Ayarlar'daki varsayılanı değiştirmez,
+  // böylece seri akışta tek bir kare kırpılmadan basılabilir.
+  const handleToggleFit = useCallback(() => {
+    if (!currentPhoto) return;
+    const next: FitMode = getFitMode(currentPhoto, printerSettings.fitMode) === 'fit' ? 'fill' : 'fit';
+    setPhotos((prev) => prev.map((p) => (p.path === currentPhoto.path ? { ...p, fitMode: next } : p)));
+  }, [currentPhoto, printerSettings.fitMode]);
 
   // Mesajlarda sürücünün seçenek etiketi kullanılır (Windows'ta yüzey değeri sürücü kimliğidir)
   const finishName = (value: string) =>
@@ -582,6 +594,7 @@ export const App: React.FC = () => {
             cropOffsetY: job.cropOffsetY,
             userRotation: job.userRotation,
             mediaSizeToken: job.mediaSize,
+            fitMode: job.fitMode,
             dpi: 300,
           });
 
@@ -674,11 +687,12 @@ export const App: React.FC = () => {
         cropOffsetX: currentPhoto.cropOffsetX || 0,
         cropOffsetY: currentPhoto.cropOffsetY || 0,
         userRotation: currentPhoto.userRotation || 0,
+        fitMode: currentFitMode,
       },
       effectiveIsLandscape,
       false
     );
-  }, [currentPhoto, copies, finish, printerSettings, enqueuePrint]);
+  }, [currentPhoto, currentFitMode, copies, finish, printerSettings, enqueuePrint]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
   const handleReprintJob = useCallback(
@@ -695,6 +709,7 @@ export const App: React.FC = () => {
           id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           finish: job.finish || printerSettings.finishValue || finish,
           mediaSize: job.mediaSize || printerSettings.mediaSize,
+          fitMode: job.fitMode || 'fill',
           timestamp: Date.now(),
           status: 'printing',
           cupsJobId: undefined,
@@ -824,6 +839,7 @@ export const App: React.FC = () => {
         case 'ArrowDown': {
           e.preventDefault();
           if (!currentPhoto) break;
+          if (currentFitMode === 'fit') break; // sığdırmada kırpma yok, kaydıracak bir şey de yok
           const step = e.key === 'ArrowUp' ? -5 : 5; // Yukarı: kafa kurtar / sola kaydır
           if (getCropAxis(currentPhoto, printerSettings.mediaSize) === 'x') {
             handleAdjustCrop(step, 0);
@@ -843,6 +859,12 @@ export const App: React.FC = () => {
         case 'C':
           e.preventDefault();
           handleResetCrop();
+          break;
+
+        case 'f':
+        case 'F':
+          e.preventDefault();
+          handleToggleFit();
           break;
 
         case 'q':
@@ -888,7 +910,9 @@ export const App: React.FC = () => {
     handleAdjustCrop,
     handleRotate,
     handleResetCrop,
+    handleToggleFit,
     currentPhoto,
+    currentFitMode,
     filteredPhotos.length,
     isQueueOpen,
     isSettingsOpen,
@@ -945,9 +969,11 @@ export const App: React.FC = () => {
           <CropViewer
             photo={currentPhoto}
             mediaSize={printerSettings.mediaSize}
+            fitMode={currentFitMode}
             onRotate={handleRotate}
             onAdjustCrop={handleAdjustCrop}
             onResetCrop={handleResetCrop}
+            onToggleFit={handleToggleFit}
           />
         </main>
 
