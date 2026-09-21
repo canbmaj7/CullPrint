@@ -358,6 +358,10 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
             <span>Kadrajı Kaydır (Kafayı Kurtar)</span>
           </div>
           <div className="shortcut-item">
+            <kbd>F</kbd>
+            <span>Sayfaya Sığdır / Kırp</span>
+          </div>
+          <div className="shortcut-item">
             <kbd>R</kbd>
             <span>90° Döndür</span>
           </div>

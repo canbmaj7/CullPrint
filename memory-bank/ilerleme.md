@@ -42,7 +42,7 @@
       kalan baskı sayısının Windows'ta okunamadığı kesinleşti (bkz. `aktifBaglam.md` → Windows Testi — Bulgular),
       elle sayaç kalıyor ve rulo kartında bunu belirten not eklendi.
 - [x] **Kadraj modu "Sayfaya Sığdır" eklendi (2026-09-21):** fotoğrafın tamamı kırpılmadan basılır, kenarlarda
-      beyaz boşluk kalır. Ayarlar'da varsayılan + fotoğraf başına `F` tuşu. sharp/canvas/önizleme aynı sabiti
+      beyaz boşluk kalır. Yalnızca `F` tuşu, fotoğraf başına (ayrı ayar yok). sharp/canvas/önizleme aynı sabiti
       ve aynı hesabı kullanır; raster ve CUPS filtre zinciri gerçek dosyayla doğrulandı (ayrıntı: `aktifBaglam.md`).
       Yazıcıda fiziksel test edilmedi.
 

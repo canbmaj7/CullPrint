@@ -4,9 +4,9 @@ import { resolveMediaPixelSize } from './media';
 /** Sığdırma modunda boş kalan kenarların rengi (sharp flatten, canvas fill ve önizleme aynı değeri kullanır) */
 export const FIT_BACKGROUND = '#ffffff';
 
-/** Fotoğrafın etkin modu: kendi seçimi yoksa Ayarlar'daki varsayılan, o da yoksa 'fill' */
-export function getFitMode(photo: PhotoItem | null | undefined, defaultMode?: FitMode): FitMode {
-  return photo?.fitMode ?? defaultMode ?? 'fill';
+/** Fotoğrafın kadraj modu: F ile sığdırmaya geçilmediyse kâğıdı doldurur */
+export function getFitMode(photo: PhotoItem | null | undefined): FitMode {
+  return photo?.fitMode ?? 'fill';
 }
 
 /**

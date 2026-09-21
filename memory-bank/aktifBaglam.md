@@ -94,17 +94,18 @@ onlara göre düzeltme yapılacak. Uygulama artık yazıcıdan bağımsız sunul
 
 ## Kadraj Modu: Sayfaya Sığdır (2026-09-21)
 
-Kullanıcı isteği: Windows'taki "sayfaya sığdır" seçeneğinin karşılığı. Artık iki kadraj modu var:
+Kullanıcı isteği: Windows'taki "sayfaya sığdır" seçeneğinin karşılığı. İki kadraj modu var:
 
 - **`fill` (varsayılan, eski davranış):** kâğıt tamamen dolar, taşan kenarlar kesilir. Kadraj kaydırma
   (ok tuşları, fare) yalnızca bu modda anlamlı.
-- **`fit` (yeni):** fotoğrafın tamamı basılır, oran tutmadığında kısa kenarlarda **beyaz** şerit kalır.
+- **`fit`:** fotoğrafın tamamı basılır, oran tutmadığında kısa kenarlarda **beyaz** şerit kalır.
   Boşluk rengi `FIT_BACKGROUND` (`src/utils/crop.ts`) — sharp, canvas ve önizleme aynı sabiti kullanır.
 
-Nerede: Ayarlar Modalı → "Kadraj Modu" (yazıcı başına `localStorage`'da varsayılan olarak saklanır) ve
-fotoğraf başına **`F`** tuşu / önizlemedeki "Sığdır (F)" butonu. Fotoğrafın kendi seçimi varsayılanı ezer
-(`getFitMode(photo, printerSettings.fitMode)`); mod baskı anında `PrintJob.fitMode`'a sabitlenir, tekrar
-basmada korunur. Sığdırma modunda kadraj kaydırma ve "Sıfırla (C)" gizlenir (kırpma yok, kaydıracak bir şey yok).
+**Yalnızca `F` tuşuyla, fotoğraf başına.** Ayarlar Modalı'nda karşılığı yoktur ve kalıcı değildir
+(kullanıcı kararı, 2026-09-21: ayrı bir ayar fazlalık). `getFitMode(photo)` → `photo.fitMode ?? 'fill'`.
+Kısayol kenar çubuğundaki listede duruyor ("F · Sayfaya Sığdır / Kırp"). Mod baskı anında
+`PrintJob.fitMode`'a sabitlenir, tekrar basmada korunur. Sığdırmada kadraj kaydırma ve "Sıfırla (C)"
+gizlenir (kırpma yok, kaydıracak bir şey yok); önizlemede turuncu "SIĞDIR" rozeti çıkar.
 
 Uygulama: `electron/raster.ts` sığdırmada `extract` yapmaz, doğrudan `resize(fit: 'contain', background)`
 kullanır; JPEG yazımı iki moda da ortak `writeJpeg()`'ten geçer, böylece `withMetadata({ density: 300 })`
@@ -116,6 +117,11 @@ döndürme hesabı ikisinde de aynı çalışır.
 (6x8 yatay) raster. Sığdırmada üst/alt şerit tam 100px ve tam beyaz (255,255,255), doldurmada dört kenar da
 fotoğraf. Her iki dosya da `ffd8 ffe1` ile başlıyor (APP1 var) ve `cupsfilter ... | wc -c` **95800 bayt**
 döndürüyor — başlıksız JPEG tuzağı yeni yolda da tekrarlamıyor. Yazıcıda fiziksel test yapılmadı.
+
+Ayrıca üst çubuk (`.header-container`) `flex/space-between` yerine üç sütunlu grid
+(`minmax(0,1fr) auto minmax(0,1fr)`): "Klasör Değiştir / Fotoğraf Ekle" bölümü marka ve sağ aksiyonların
+genişliğinden bağımsız olarak pencerenin tam ortasında durur. Uzun klasör yolu ortalamayı bozmasın diye
+`.folder-path-display` `max-width: 28ch`.
 
 ## Windows Testi — Bulgular (2026-09-20, sürüyor)
 

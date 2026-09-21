@@ -128,9 +128,12 @@ body {
 
 /* 1. Header */
 .header-container {
-  display: flex;
+  /* Üç sütun: orta bölüm sol/sağ içeriğin genişliğinden bağımsız olarak pencerenin tam ortasında
+     durur (space-between'de marka ve sağ aksiyonlar farklı genişlikte olduğu için kayıyordu) */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   height: var(--space-8);
   padding: 0 var(--space-4);
   background-color: var(--bg-panel);
@@ -142,6 +145,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-self: start;
+  min-width: 0;
 }
 
 .brand-logo {
@@ -176,7 +181,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  max-width: 50%;
+  justify-self: center;
+  min-width: 0;
 }
 
 .folder-select-btn {
@@ -203,6 +209,7 @@ body {
 }
 
 .folder-path-display {
+  max-width: 28ch;
   font-size: 12px;
   font-family: var(--font-mono);
   color: var(--text-secondary);
@@ -219,6 +226,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-self: end;
+  min-width: 0;
 }
 
 .filter-group {
@@ -1968,11 +1977,3 @@ kbd {
 }
 
 
-
-/* Ayarlar: seçili kadraj modunun ne yaptığını tek cümlede anlatan yardım satırı */
-.settings-option-hint {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--text-muted);
-}

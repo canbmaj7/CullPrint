@@ -19,7 +19,7 @@ export interface PhotoItem {
   cropOffsetY: number; // -100 to 100 percentage offset for vertical crop
   cropOffsetX: number; // -100 to 100 percentage offset for horizontal crop
   userRotation: number; // 0, 90, 180, 270
-  fitMode?: FitMode; // tanımsız = Ayarlar'daki varsayılan (F tuşu bu fotoğrafa özel geçer)
+  fitMode?: FitMode; // tanımsız = 'fill'; F tuşu bu fotoğraf için sığdırmaya geçirir
 }
 
 export type FilterMode = 'all' | 'unprinted' | 'printed';
@@ -82,7 +82,6 @@ export interface PrinterSettings {
   mediaSize: string;
   finishOptionName?: string;
   finishValue?: string;
-  fitMode?: FitMode; // varsayılan kadraj modu; fotoğraf başına F ile geçici olarak değiştirilebilir
 }
 
 export interface CupsJob {

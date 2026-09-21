@@ -107,7 +107,6 @@ export const App: React.FC = () => {
     mediaSize: 'w432h576',
     finishOptionName: 'StpLaminate',
     finishValue: 'Glossy',
-    fitMode: 'fill',
   });
 
   // Seçili yazıcıya göre kayıtlı ayarları yükle
@@ -123,10 +122,10 @@ export const App: React.FC = () => {
           setFinish(parsed.finishValue);
         }
       } catch {
-        setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy', fitMode: 'fill' });
+        setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
       }
     } else {
-      setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy', fitMode: 'fill' });
+      setPrinterSettings({ mediaSize: 'w432h576', finishOptionName: 'StpLaminate', finishValue: 'Glossy' });
     }
   }, [selectedPrinter]);
 
@@ -468,8 +467,8 @@ export const App: React.FC = () => {
   // Seçili aktif fotoğraf
   const currentPhoto = filteredPhotos[selectedIndex] || null;
 
-  // Bu fotoğrafın etkin kadraj modu: kendi seçimi (F ile) yoksa Ayarlar'daki varsayılan
-  const currentFitMode = getFitMode(currentPhoto, printerSettings.fitMode);
+  // Bu fotoğrafın kadraj modu (F ile değişir)
+  const currentFitMode = getFitMode(currentPhoto);
   // Yukarıdaki efektten sonra çalışır: liste değişiminde önce eski görüntülenen fotoğraf okunur
   useEffect(() => {
     viewedPathRef.current = currentPhoto?.path ?? null;
@@ -528,13 +527,13 @@ export const App: React.FC = () => {
     );
   }, [currentPhoto]);
 
-  // Sayfaya sığdır ↔ kâğıdı doldur: yalnızca bu fotoğraf için. Ayarlar'daki varsayılanı değiştirmez,
-  // böylece seri akışta tek bir kare kırpılmadan basılabilir.
+  // Sayfaya sığdır ↔ kâğıdı doldur: yalnızca bu fotoğraf için (F). Seri akışta tek bir kare
+  // kırpılmadan basılabilsin diye fotoğraf başına tutulur, kalıcı bir ayarı yoktur.
   const handleToggleFit = useCallback(() => {
     if (!currentPhoto) return;
-    const next: FitMode = getFitMode(currentPhoto, printerSettings.fitMode) === 'fit' ? 'fill' : 'fit';
+    const next: FitMode = getFitMode(currentPhoto) === 'fit' ? 'fill' : 'fit';
     setPhotos((prev) => prev.map((p) => (p.path === currentPhoto.path ? { ...p, fitMode: next } : p)));
-  }, [currentPhoto, printerSettings.fitMode]);
+  }, [currentPhoto]);
 
   // Mesajlarda sürücünün seçenek etiketi kullanılır (Windows'ta yüzey değeri sürücü kimliğidir)
   const finishName = (value: string) =>

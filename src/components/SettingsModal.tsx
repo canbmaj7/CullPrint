@@ -88,39 +88,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* İçerik */}
         <div className="settings-content">
-          {/* Kadraj modu yazıcıdan gelmez, CullPrint'in kendi ayarıdır: yetenekler yüklenemese de görünür */}
-          <div className="settings-option-card">
-            <div className="settings-option-header">
-              <span className="settings-option-title">Kadraj Modu</span>
-              <span className="setting-badge-pill" title="Fotoğraf başına F tuşuyla geçici olarak değiştirilebilir">
-                Varsayılan
-              </span>
-            </div>
-            <div className="finish-toggle-group settings-finish-group">
-              <button
-                type="button"
-                className={`finish-btn settings-finish-btn ${(localSettings.fitMode ?? 'fill') === 'fill' ? 'active' : ''}`}
-                title="Kâğıt tamamen dolar, taşan kenarlar kesilir"
-                onClick={() => setLocalSettings((prev) => ({ ...prev, fitMode: 'fill' }))}
-              >
-                Kâğıdı Doldur
-              </button>
-              <button
-                type="button"
-                className={`finish-btn settings-finish-btn ${localSettings.fitMode === 'fit' ? 'active' : ''}`}
-                title="Fotoğrafın tamamı basılır, kenarlarda beyaz boşluk kalır"
-                onClick={() => setLocalSettings((prev) => ({ ...prev, fitMode: 'fit' }))}
-              >
-                Sayfaya Sığdır
-              </button>
-            </div>
-            <p className="settings-option-hint">
-              {localSettings.fitMode === 'fit'
-                ? 'Fotoğrafın tamamı basılır; kâğıt oranı tutmadığında kenarlarda beyaz boşluk kalır.'
-                : 'Kâğıt tamamen dolar; fotoğrafın kâğıda sığmayan kenarları kesilir.'}
-            </p>
-          </div>
-
           {isLoadingCapabilities ? (
             <div className="settings-loading">
               <Loader2 size={24} className="animate-spin" />
