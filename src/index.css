@@ -503,6 +503,68 @@ body {
   background-color: var(--bg-hover);
 }
 
+/* Renk ayarı paneli (Renk düğmesiyle açılır, alt kontrollerin üstünde durur) */
+.viewer-bottom-controls {
+  position: relative;
+}
+
+.adjust-panel {
+  position: absolute;
+  right: 16px;
+  bottom: calc(100% - 4px);
+  width: 300px;
+  padding: 12px 14px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  z-index: 20;
+}
+
+.adjust-panel-title {
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.adjust-panel-title span {
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.adjust-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  padding: 3px 0;
+}
+
+.adjust-row input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent-blue);
+}
+
+.adjust-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.adjust-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.adjust-actions .action-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Empty State */
 .viewer-empty-state {
   display: flex;

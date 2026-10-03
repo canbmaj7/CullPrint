@@ -1,3 +1,5 @@
+import type { ColorAdjust } from './utils/adjust';
+
 /**
  * Fotoğrafın kâğıda oturma biçimi.
  * 'fill': kâğıt tamamen dolar, taşan kenarlar kesilir (varsayılan, kadraj kaydırma burada anlamlı).
@@ -20,6 +22,7 @@ export interface PhotoItem {
   cropOffsetX: number; // -100 to 100 percentage offset for horizontal crop
   userRotation: number; // 0, 90, 180, 270
   fitMode?: FitMode; // tanımsız = 'fill'; F tuşu bu fotoğraf için sığdırmaya geçirir
+  adjust?: ColorAdjust; // renk ayarı; tanımsız = nötr (hiç uygulanmaz)
 }
 
 export type FilterMode = 'all' | 'unprinted' | 'printed';
@@ -57,6 +60,7 @@ export interface PrintJob {
   cropOffsetY: number;
   userRotation: number;
   fitMode: FitMode; // baskı anında sabitlenir; tekrar basmada da aynı kalır
+  adjust?: ColorAdjust; // renk ayarı da baskı anında sabitlenir; tekrar basmada aynı kalır
 }
 
 export interface PrinterOptionChoice {

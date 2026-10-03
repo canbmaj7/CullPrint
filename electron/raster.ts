@@ -1,6 +1,7 @@
 // Baskı raster'ı ana süreçte sharp (libvips) ile: arayüz iş parçacığını dondurmaz, orijinal dosyadan okur.
 // Kırpma hesabı önizlemeyle ortaktır (src/utils/crop.ts → computeCropRect): ekranda görülen = basılan.
 import { computeCropRect, FIT_BACKGROUND } from '../src/utils/crop';
+import { applyColorTransform, buildColorTransform, isNeutralAdjust, type ColorAdjust } from '../src/utils/adjust';
 import type { FitMode } from '../src/types';
 
 export interface RasterRequest {
@@ -11,6 +12,7 @@ export interface RasterRequest {
   cropOffsetY: number;
   userRotation: number;
   fitMode?: FitMode; // 'fit' = kırpma yok, kenarlarda beyaz şerit; varsayılan 'fill'
+  adjust?: ColorAdjust; // renk ayarı; yoksa ya da nötrse hiç uygulanmaz
 }
 
 export async function renderPrintRasterFile(
@@ -31,6 +33,15 @@ export async function renderPrintRasterFile(
   });
 
   // 2a. Sığdırma modu: kırpma yok, fotoğrafın tamamı kâğıda ortalanır, artan kenarlar beyaz kalır
+  if (req.fitMode === 'fit' && !isNeutralAdjust(req.adjust)) {
+    // Renk ayarı yalnızca fotoğrafa uygulanır, beyaz şeritlere değil: önce sığdır (boşluksuz), ayarla, sonra beyaza ortala
+    const photo = await adjustColors(sharp, source.resize(req.targetWidth, req.targetHeight, { fit: 'inside', kernel: 'lanczos3' }), req.adjust);
+    await writeJpeg(
+      photo.resize(req.targetWidth, req.targetHeight, { fit: 'contain', background: FIT_BACKGROUND, kernel: 'lanczos3' }),
+      outPath
+    );
+    return;
+  }
   if (req.fitMode === 'fit') {
     await writeJpeg(
       source.resize(req.targetWidth, req.targetHeight, {
@@ -57,12 +68,25 @@ export async function renderPrintRasterFile(
   const width = Math.max(1, Math.min(rotated.info.width - left, Math.round(crop.width)));
   const height = Math.max(1, Math.min(rotated.info.height - top, Math.round(crop.height)));
 
-  await writeJpeg(
-    source
-      .extract({ left, top, width, height })
-      .resize(req.targetWidth, req.targetHeight, { fit: 'fill', kernel: 'lanczos3' }),
-    outPath
-  );
+  const filled = source
+    .extract({ left, top, width, height })
+    .resize(req.targetWidth, req.targetHeight, { fit: 'fill', kernel: 'lanczos3' });
+  await writeJpeg(await adjustColors(sharp, filled, req.adjust), outPath);
+}
+
+/**
+ * Renk ayarını (src/utils/adjust.ts) hedef boyuta indirilmiş görüntüye uygular: tam çözünürlükte değil, baskı boyutunda
+ * (≈4 MP) çalıştığı için hızlıdır. Ayar nötrse görüntüye dokunmadan aynı hattı döndürür.
+ */
+async function adjustColors(
+  sharp: typeof import('sharp'),
+  pipeline: import('sharp').Sharp,
+  adjust: ColorAdjust | undefined
+): Promise<import('sharp').Sharp> {
+  if (isNeutralAdjust(adjust) || !adjust) return pipeline;
+  const { data, info } = await pipeline.raw().toBuffer({ resolveWithObject: true });
+  applyColorTransform(data, info.channels === 4 ? 4 : 3, buildColorTransform(adjust));
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } });
 }
 
 /**

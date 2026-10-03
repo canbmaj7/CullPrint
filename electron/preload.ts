@@ -72,6 +72,7 @@ export interface RenderRasterParams {
   cropOffsetY: number;
   userRotation: number;
   fitMode?: 'fill' | 'fit';
+  adjust?: { brightness: number; contrast: number; saturation: number; temperature: number };
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {

@@ -7,6 +7,7 @@
  */
 import { computeCropRect, computeFitRect, FIT_BACKGROUND, getRasterSize } from './crop';
 import { FitMode } from '../types';
+import { applyColorTransform, buildColorTransform, isNeutralAdjust, type ColorAdjust } from './adjust';
 
 export { resolveMediaPixelSize } from './media';
 
@@ -18,6 +19,7 @@ export interface PrintRasterParams {
   userRotation: number; // 0, 90, 180, 270
   mediaSizeToken: string;
   fitMode?: FitMode; // 'fit' = kırpma yok, kenarlarda beyaz şerit; varsayılan 'fill'
+  adjust?: ColorAdjust; // renk ayarı; nötrse uygulanmaz
   dpi?: number;
 }
 
@@ -32,6 +34,7 @@ export async function createPrintFile(params: PrintRasterParams): Promise<string
     cropOffsetY: params.cropOffsetY,
     userRotation: params.userRotation,
     fitMode: params.fitMode,
+    adjust: params.adjust,
   });
   if (spoolPath) return spoolPath;
 
@@ -44,6 +47,7 @@ export async function createPrintFile(params: PrintRasterParams): Promise<string
     cropOffsetY: params.cropOffsetY,
     userRotation: params.userRotation,
     fitMode: params.fitMode,
+    adjust: params.adjust,
   });
   return window.electronAPI!.saveTempPrintFile(base64);
 }
@@ -56,6 +60,22 @@ interface CanvasRasterParams {
   cropOffsetY: number;
   userRotation: number;
   fitMode?: FitMode;
+  adjust?: ColorAdjust;
+}
+
+/** Canvas yedeğinde renk ayarını (adjust.ts, sharp yoluyla aynı hesap) belirtilen bölgeye uygular */
+function applyAdjustToRegion(
+  ctx: CanvasRenderingContext2D,
+  adjust: ColorAdjust | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): void {
+  if (!adjust || isNeutralAdjust(adjust) || width <= 0 || height <= 0) return;
+  const image = ctx.getImageData(x, y, width, height);
+  applyColorTransform(image.data, 4, buildColorTransform(adjust));
+  ctx.putImageData(image, x, y);
 }
 
 function generatePrintRaster({
@@ -66,6 +86,7 @@ function generatePrintRaster({
   cropOffsetY,
   userRotation,
   fitMode,
+  adjust,
 }: CanvasRasterParams): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -123,9 +144,12 @@ function generatePrintRaster({
           ctx.fillStyle = FIT_BACKGROUND;
           ctx.fillRect(0, 0, targetWidth, targetHeight);
           ctx.drawImage(tempCanvas, 0, 0, effectiveImgW, effectiveImgH, dest.x, dest.y, dest.width, dest.height);
+          // Renk ayarı yalnızca fotoğraf alanına uygulanır, beyaz şeritlere değil
+          applyAdjustToRegion(ctx, adjust, Math.round(dest.x), Math.round(dest.y), Math.round(dest.width), Math.round(dest.height));
         } else {
           const crop = computeCropRect(effectiveImgW, effectiveImgH, targetWidth, targetHeight, cropOffsetX, cropOffsetY);
           ctx.drawImage(tempCanvas, crop.x, crop.y, crop.width, crop.height, 0, 0, targetWidth, targetHeight);
+          applyAdjustToRegion(ctx, adjust, 0, 0, targetWidth, targetHeight);
         }
 
         // Yüksek kaliteli JPEG çıktısı (0.96)

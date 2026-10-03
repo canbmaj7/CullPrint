@@ -3,6 +3,7 @@ import { UploadCloud } from 'lucide-react';
 import { PhotoItem, FilterMode, PrinterState, ThemeMode, PrintJob, PrinterCapabilities, PrinterSettings, FitMode } from './types';
 import { createPrintFile } from './utils/rasterizer';
 import { getCropAxis, getFitMode } from './utils/crop';
+import { isNeutralAdjust, NEUTRAL_ADJUST, type ColorAdjust } from './utils/adjust';
 import { finishDisplayName } from './utils/finish';
 import { defaultRollCapacity, formatPaperSize } from './utils/media';
 import { Header } from './components/Header';
@@ -553,6 +554,22 @@ export const App: React.FC = () => {
     setPhotos((prev) => prev.map((p) => (p.path === currentPhoto.path ? { ...p, fitMode: next } : p)));
   }, [currentPhoto]);
 
+  // Renk ayarı (parlaklık, kontrast, doygunluk, sıcaklık): bu fotoğraf için; baskı anında işe sabitlenir
+  const handleAdjustChange = useCallback(
+    (next: ColorAdjust) => {
+      if (!currentPhoto) return;
+      setPhotos((prev) => prev.map((p) => (p.path === currentPhoto.path ? { ...p, adjust: next } : p)));
+    },
+    [currentPhoto]
+  );
+  const handleResetAdjust = useCallback(() => handleAdjustChange({ ...NEUTRAL_ADJUST }), [handleAdjustChange]);
+  // Aynı ışıkta çekilmiş seri için: seçili karenin ayarı listedeki tüm fotoğraflara kopyalanır
+  const handleApplyAdjustToAll = useCallback(() => {
+    if (!currentPhoto) return;
+    const source = currentPhoto.adjust ?? NEUTRAL_ADJUST;
+    setPhotos((prev) => prev.map((p) => ({ ...p, adjust: { ...source } })));
+  }, [currentPhoto]);
+
   // Mesajlarda sürücünün seçenek etiketi kullanılır (Windows'ta yüzey değeri sürücü kimliğidir)
   const finishName = (value: string) =>
     finishDisplayName(
@@ -612,6 +629,7 @@ export const App: React.FC = () => {
             userRotation: job.userRotation,
             mediaSizeToken: job.mediaSize,
             fitMode: job.fitMode,
+            adjust: job.adjust,
             dpi: 300,
           });
 
@@ -705,6 +723,8 @@ export const App: React.FC = () => {
         cropOffsetY: currentPhoto.cropOffsetY || 0,
         userRotation: currentPhoto.userRotation || 0,
         fitMode: currentFitMode,
+        // Nötr ayar hiç saklanmaz: eski davranışla bit düzeyinde aynı baskı
+        adjust: isNeutralAdjust(currentPhoto.adjust) ? undefined : { ...currentPhoto.adjust! },
       },
       effectiveIsLandscape,
       false
@@ -991,6 +1011,9 @@ export const App: React.FC = () => {
             onAdjustCrop={handleAdjustCrop}
             onResetCrop={handleResetCrop}
             onToggleFit={handleToggleFit}
+            onAdjustChange={handleAdjustChange}
+            onResetAdjust={handleResetAdjust}
+            onApplyAdjustToAll={handleApplyAdjustToAll}
           />
         </main>
 
