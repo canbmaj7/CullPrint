@@ -89,6 +89,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
   selectFiles: (): Promise<FileItem[]> => ipcRenderer.invoke('select-files'),
   readFolder: (folderPath: string): Promise<FileItem[]> => ipcRenderer.invoke('read-folder', folderPath),
+  // Klasör/dosya yüklenirken ilerleme (tamamlanan / toplam)
+  onLoadProgress: (callback: (progress: { done: number; total: number }) => void): (() => void) => {
+    const listener = (_event: unknown, progress: { done: number; total: number }) => callback(progress);
+    ipcRenderer.on('load-progress', listener);
+    return () => ipcRenderer.removeListener('load-progress', listener);
+  },
   watchFolder: (folderPath: string): Promise<boolean> => ipcRenderer.invoke('watch-folder', folderPath),
   unwatchFolder: (): Promise<void> => ipcRenderer.invoke('unwatch-folder'),
   onFolderNewFiles: (callback: (files: FileItem[]) => void): (() => void) => {

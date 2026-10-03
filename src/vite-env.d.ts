@@ -78,6 +78,8 @@ export interface IElectronAPI {
   selectFolder: () => Promise<string | null>;
   selectFiles: () => Promise<FileItem[]>;
   readFolder: (folderPath: string) => Promise<FileItem[]>;
+  // Klasör/dosya yüklenirken ilerleme (tamamlanan / toplam)
+  onLoadProgress: (callback: (progress: { done: number; total: number }) => void) => () => void;
   // Seçili klasöre sonradan düşen (yazımı bitmiş) fotoğrafları bildirir
   watchFolder: (folderPath: string) => Promise<boolean>;
   unwatchFolder: () => Promise<void>;

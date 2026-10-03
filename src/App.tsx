@@ -13,6 +13,7 @@ import { PrinterSidebar } from './components/PrinterSidebar';
 import { QueueDrawer } from './components/QueueDrawer';
 import { SettingsModal } from './components/SettingsModal';
 import { PendingPrintBar, type PendingPrint } from './components/PendingPrintBar';
+import { LoadProgressBar, type LoadProgress } from './components/LoadProgressBar';
 import { FileItem } from './vite-env';
 
 // Fotoğraf başına basılan kopya sayısı kalıcıdır: uygulama kapanıp açılınca ya da klasör yeniden
@@ -380,6 +381,18 @@ export const App: React.FC = () => {
     };
   }, [currentFolder, addFilesToPhotos]);
 
+  // Klasör/dosya yüklenirken ilerleme çubuğu (ilerleme ana süreçten 'load-progress' ile gelir)
+  const [loadProgress, setLoadProgress] = useState<LoadProgress | null>(null);
+  // Etiket yalnızca bir yükleme sürerken doludur: gecikmeli bir olay çubuğu geri getirmesin, dosya diyalogu
+  // açıkken de çubuk görünmesin (ilk ilerleme olayı diyalog kapanınca gelir)
+  const loadLabelRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    return window.electronAPI.onLoadProgress(({ done, total }) => {
+      if (loadLabelRef.current) setLoadProgress({ done, total, label: loadLabelRef.current });
+    });
+  }, []);
+
   // 2. Klasör Seçimi
   const handleSelectFolder = async () => {
     if (!window.electronAPI) return;
@@ -388,10 +401,15 @@ export const App: React.FC = () => {
       if (!folderPath) return;
 
       setCurrentFolder(folderPath);
+      loadLabelRef.current = 'Klasör yükleniyor';
+      setLoadProgress({ done: 0, total: 0, label: 'Klasör yükleniyor' });
       const files = await window.electronAPI.readFolder(folderPath);
       addFilesToPhotos(files, false);
     } catch (err) {
       console.error('Klasör açma hatası:', err);
+    } finally {
+      loadLabelRef.current = null;
+      setLoadProgress(null);
     }
   };
 
@@ -399,11 +417,15 @@ export const App: React.FC = () => {
   const handleSelectFiles = async () => {
     if (!window.electronAPI) return;
     try {
+      loadLabelRef.current = 'Fotoğraflar ekleniyor'; // çubuk ilk ilerleme olayıyla (diyalog kapanınca) görünür
       const files = await window.electronAPI.selectFiles();
       if (!files || files.length === 0) return;
       addFilesToPhotos(files, true);
     } catch (err) {
       console.error('Fotoğraf seçme hatası:', err);
+    } finally {
+      loadLabelRef.current = null;
+      setLoadProgress(null);
     }
   };
 
@@ -444,6 +466,7 @@ export const App: React.FC = () => {
     const droppedFiles: FileItem[] = [];
 
     for (let i = 0; i < files.length; i++) {
+      if (files.length > 3) setLoadProgress({ done: i, total: files.length, label: 'Fotoğraflar ekleniyor' });
       const file = files[i];
       const fullPath = window.electronAPI.getFilePath(file);
       if (fullPath) {
@@ -464,6 +487,7 @@ export const App: React.FC = () => {
       }
     }
 
+    setLoadProgress(null);
     if (droppedFiles.length > 0) {
       addFilesToPhotos(droppedFiles, true);
     }
@@ -1135,6 +1159,7 @@ export const App: React.FC = () => {
         printerMarkerLevel={printers.find((p) => p.name === selectedPrinter)?.markerLevel}
       />
 
+      <LoadProgressBar progress={loadProgress} />
       <PendingPrintBar items={pendingPrints} onCancel={cancelPendingPrint} />
 
       {/* Yazıcı Ayarları Modalı */}

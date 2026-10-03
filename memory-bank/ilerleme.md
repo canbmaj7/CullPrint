@@ -57,6 +57,11 @@
 - [x] **Baskı öncesi iptal süresi (2026-10-03):** Space/Enter sonrası varsayılan 2 sn bekler, Esc/İptal ile vazgeçilir;
       süre Ayarlar'dan değişir (0-10 sn, 0 = anında; `cullprint_print_delay_sec`). Tekrar Bas (kuyruk çekmecesi) beklemez.
 
+- [x] **Yükleme çubuğu ve hızlı klasör okuma (2026-10-03):** klasör seçilince/dosya eklenince ilerleme çubuğu
+      (`LoadProgressBar`, ana süreçten `load-progress` olayı). Sony JPEG'lerde SOF ilk 64 KB'ın dışında kaldığı için
+      her dosya `sharp.metadata`'ya düşüyordu (349 dosya 14 sn); `electron/jpeg.ts` bölümleri atlayarak boyutu okur,
+      dosyalar 6'şar paralel işlenir (349 dosya 0,3 sn).
+
 - [ ] Oturum yedeği ve çökme sonrası kurtarma (plan: `planOturumYedegi.md`; önce açık sorular kullanıcıyla netleşecek).
 
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.

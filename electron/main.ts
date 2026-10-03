@@ -8,6 +8,7 @@ import { printBackend } from './print';
 import { renderPrintRasterFile, type RasterRequest } from './raster';
 import { RAW_EXTENSIONS, resolveImageSource } from './raw';
 import { readShotInfo } from './shot';
+import { readJpegDimensions } from './jpeg';
 import type { PrintRequest } from './print/types';
 
 // sharp (libvips) opsiyonel: yüklenemezse platformun yerel küçük resim API'sine, o da yoksa orijinale düşülür
@@ -115,12 +116,17 @@ async function parseImageInfo(filePath: string) {
     // RAW'da boyut ve yön, çıkarılmış gömülü JPEG'den okunur (yön APP1 olarak yazılıdır)
     const source = await resolveImageSource(filePath, RAW_CACHE_DIR);
     const fd = await fs.promises.open(source, 'r');
-    const buffer = Buffer.alloc(65536);
-    await fd.read(buffer, 0, 65536, 0);
-    await fd.close();
-
-    // 1. JPEG binary marker boyutları; bulunamazsa (PNG/WebP vb.) sharp ile başlık okunur
-    const dims = getJpegDimensions(buffer);
+    let buffer: Buffer;
+    let dims: { width: number; height: number } | null;
+    try {
+      buffer = Buffer.alloc(65536);
+      await fd.read(buffer, 0, 65536, 0);
+      // 1. JPEG işaretlerinden boyut: önce ilk 64 KB, büyük EXIF'li dosyalarda bölümler atlanarak dosyadan
+      dims = getJpegDimensions(buffer) ?? (await readJpegDimensions(fd));
+    } finally {
+      await fd.close();
+    }
+    // JPEG değilse (PNG/WebP vb.) ya da bulunamazsa sharp ile başlık okunur
     if (dims) {
       width = dims.width;
       height = dims.height;
@@ -388,7 +394,7 @@ ipcMain.handle('select-folder', async () => {
 });
 
 // 1.5. Select Multiple Files Dialog (Doğrudan Fotoğraf Ekleme)
-ipcMain.handle('select-files', async () => {
+ipcMain.handle('select-files', async (event) => {
   if (!mainWindow) return [];
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile', 'multiSelections'],
@@ -400,6 +406,8 @@ ipcMain.handle('select-files', async () => {
   if (result.canceled || result.filePaths.length === 0) return [];
 
   const files = [];
+  const progress = makeProgressReporter(event.sender, result.filePaths.length);
+  progress.start();
   for (const filePath of result.filePaths) {
     try {
       const stat = await fs.promises.stat(filePath);
@@ -414,7 +422,9 @@ ipcMain.handle('select-files', async () => {
     } catch (e) {
       console.error('Dosya okunamadı:', filePath, e);
     }
+    progress.step();
   }
+  progress.finish();
   return files;
 });
 
@@ -438,34 +448,65 @@ ipcMain.handle('get-file-info', async (_event, filePath: string) => {
 });
 
 // 2. Read Folder for Images
-ipcMain.handle('read-folder', async (_event, folderPath: string) => {
+// Yükleme ilerlemesi: arayüzde klasör/dosya yüklenirken çubuk gösterilir ('load-progress')
+const LOAD_CONCURRENCY = 6;
+
+function makeProgressReporter(sender: Electron.WebContents, total: number) {
+  let done = 0;
+  let lastSent = 0;
+  const send = (force: boolean) => {
+    const now = Date.now();
+    if (!force && now - lastSent < 80) return;
+    lastSent = now;
+    if (!sender.isDestroyed()) sender.send('load-progress', { done, total });
+  };
+  return {
+    start: () => send(true),
+    step: () => {
+      done++;
+      send(false);
+    },
+    finish: () => send(true),
+  };
+}
+
+ipcMain.handle('read-folder', async (event, folderPath: string) => {
   try {
     if (!fs.existsSync(folderPath)) return [];
 
     const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+    const names = entries
+      .filter((e) => e.isFile() && IMAGE_EXTENSIONS.has(path.extname(e.name).toLowerCase()))
+      .map((e) => e.name);
 
-    const files = [];
-    for (const entry of entries) {
-      if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (IMAGE_EXTENSIONS.has(ext)) {
-          const fullPath = path.join(folderPath, entry.name);
+    // EXIF/boyut okuma ve ARW'den gömülü JPEG çıkarma birkaç dosya paralel yürür; sıra sonda ada göre kurulur
+    const total = names.length;
+    const progress = makeProgressReporter(event.sender, total);
+    const files: (Record<string, unknown> | undefined)[] = new Array(total);
+    let next = 0;
+    progress.start();
+    const worker = async () => {
+      for (;;) {
+        const i = next++;
+        if (i >= total) return;
+        const fullPath = path.join(folderPath, names[i]);
+        try {
           const stat = await fs.promises.stat(fullPath);
           const meta = await parseImageInfo(fullPath);
-          files.push({
-            name: entry.name,
-            path: fullPath,
-            size: stat.size,
-            lastModified: stat.mtimeMs,
-            ...meta,
-          });
+          files[i] = { name: names[i], path: fullPath, size: stat.size, lastModified: stat.mtimeMs, ...meta };
+        } catch (err) {
+          console.warn('Dosya atlandı:', fullPath, err); // bozuk/silinmiş tek dosya tüm klasörü düşürmesin
         }
+        progress.step();
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(LOAD_CONCURRENCY, total) }, worker));
+    progress.finish();
 
+    const result = files.filter((f): f is Record<string, unknown> => Boolean(f)) as { name: string }[];
     // Sort naturally by file name (e.g. IMG_0001, IMG_0002)
-    files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-    return files;
+    result.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    return result;
   } catch (err) {
     console.error('Klasör okuma hatası:', err);
     return [];
