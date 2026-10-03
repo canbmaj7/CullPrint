@@ -461,7 +461,7 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
   }
 });
 
-// 2b. Klasör izleme: seçili klasöre sonradan düşen fotoğraflar listeye eklenir.
+// 2b. Klasör izleme: seçili klasöre sonradan düşen fotoğraflar listeye eklenir, silinenler listeden çıkar.
 // fs.watch yerine 2 sn'lik yoklama: ağ/kart okuyucu/aktarım araçlarında olay kaçırmaz. Dosya boyutu
 // iki yoklamada aynı kalana dek beklenir ki hâlâ yazılmakta olan yarım dosya listeye girmesin.
 const WATCH_INTERVAL_MS = 2000;
@@ -489,6 +489,7 @@ ipcMain.handle('watch-folder', async (_event, folderPath: string) => {
     return false;
   }
   const lastSize = new Map<string, number>(); // yazılmakta olabilecek dosyaların önceki yoklamadaki boyutu
+  const missingPolls = new Map<string, number>(); // bilinen dosyanın art arda kaç yoklamadır görünmediği
   let busy = false;
 
   const timer = setInterval(async () => {
@@ -496,7 +497,30 @@ ipcMain.handle('watch-folder', async (_event, folderPath: string) => {
     busy = true;
     try {
       const ready: { name: string; fullPath: string; size: number; mtimeMs: number }[] = [];
-      for (const name of await listImageNames(folderPath)) {
+      const names = await listImageNames(folderPath);
+      const present = new Set(names);
+
+      // Silinenler: iki yoklama üst üste yoksa kalkmış say (aktarım araçları dosyayı kısa süre yeniden adlandırabilir)
+      const removed: string[] = [];
+      for (const name of known) {
+        if (present.has(name)) {
+          missingPolls.delete(name);
+          continue;
+        }
+        const count = (missingPolls.get(name) ?? 0) + 1;
+        if (count >= 2) {
+          known.delete(name);
+          missingPolls.delete(name);
+          removed.push(path.join(folderPath, name));
+        } else {
+          missingPolls.set(name, count);
+        }
+      }
+      if (removed.length > 0 && folderWatchTimer === timer) {
+        mainWindow?.webContents.send('folder-removed-files', removed);
+      }
+
+      for (const name of names) {
         if (known.has(name)) continue;
         const fullPath = path.join(folderPath, name);
         let stat: fs.Stats;
@@ -521,7 +545,8 @@ ipcMain.handle('watch-folder', async (_event, folderPath: string) => {
         mainWindow?.webContents.send('folder-new-files', items);
       }
     } catch (err) {
-      console.error('Klasör izleme hatası:', err);
+      // Klasör geçici yoksa (kart çıkarıldı, silindi) sessizce bekle; listeye dokunma, geri gelince devam eder
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') console.error('Klasör izleme hatası:', err);
     } finally {
       busy = false;
     }

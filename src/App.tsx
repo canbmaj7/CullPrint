@@ -359,10 +359,16 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!currentFolder || !window.electronAPI) return;
     const api = window.electronAPI;
-    const unsubscribe = api.onFolderNewFiles((files) => addFilesToPhotos(files, true));
+    const unsubscribeNew = api.onFolderNewFiles((files) => addFilesToPhotos(files, true));
+    // Klasörden silinen fotoğraf listede kalmasın (önizleme ve baskı dosyayı bulamaz); seçim aşağıdaki efektle düzelir
+    const unsubscribeRemoved = api.onFolderRemovedFiles((paths) => {
+      const gone = new Set(paths);
+      setPhotos((prev) => prev.filter((p) => !gone.has(p.path)));
+    });
     void api.watchFolder(currentFolder);
     return () => {
-      unsubscribe();
+      unsubscribeNew();
+      unsubscribeRemoved();
       void api.unwatchFolder();
     };
   }, [currentFolder, addFilesToPhotos]);

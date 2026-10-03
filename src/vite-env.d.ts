@@ -72,6 +72,8 @@ export interface IElectronAPI {
   watchFolder: (folderPath: string) => Promise<boolean>;
   unwatchFolder: () => Promise<void>;
   onFolderNewFiles: (callback: (files: FileItem[]) => void) => () => void;
+  // İzlenen klasörden silinen fotoğrafların yolları
+  onFolderRemovedFiles: (callback: (paths: string[]) => void) => () => void;
   getPrinters: () => Promise<PrinterInfo[]>;
   getPrinterOptions: (printerName: string) => Promise<PrinterCapabilities & { raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;
