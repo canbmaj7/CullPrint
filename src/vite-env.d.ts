@@ -68,6 +68,10 @@ export interface IElectronAPI {
   selectFolder: () => Promise<string | null>;
   selectFiles: () => Promise<FileItem[]>;
   readFolder: (folderPath: string) => Promise<FileItem[]>;
+  // Seçili klasöre sonradan düşen (yazımı bitmiş) fotoğrafları bildirir
+  watchFolder: (folderPath: string) => Promise<boolean>;
+  unwatchFolder: () => Promise<void>;
+  onFolderNewFiles: (callback: (files: FileItem[]) => void) => () => void;
   getPrinters: () => Promise<PrinterInfo[]>;
   getPrinterOptions: (printerName: string) => Promise<PrinterCapabilities & { raw: string }>;
   saveTempPrintFile: (base64Data: string) => Promise<string>;

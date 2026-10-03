@@ -355,6 +355,18 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Seçili klasörü izle: sonradan düşen fotoğraflar listenin sonuna eklenir (seçim ve kuyruk bozulmaz)
+  useEffect(() => {
+    if (!currentFolder || !window.electronAPI) return;
+    const api = window.electronAPI;
+    const unsubscribe = api.onFolderNewFiles((files) => addFilesToPhotos(files, true));
+    void api.watchFolder(currentFolder);
+    return () => {
+      unsubscribe();
+      void api.unwatchFolder();
+    };
+  }, [currentFolder, addFilesToPhotos]);
+
   // 2. Klasör Seçimi
   const handleSelectFolder = async () => {
     if (!window.electronAPI) return;

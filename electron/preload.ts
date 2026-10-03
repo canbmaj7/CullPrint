@@ -78,6 +78,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
   selectFiles: (): Promise<FileItem[]> => ipcRenderer.invoke('select-files'),
   readFolder: (folderPath: string): Promise<FileItem[]> => ipcRenderer.invoke('read-folder', folderPath),
+  watchFolder: (folderPath: string): Promise<boolean> => ipcRenderer.invoke('watch-folder', folderPath),
+  unwatchFolder: (): Promise<void> => ipcRenderer.invoke('unwatch-folder'),
+  onFolderNewFiles: (callback: (files: FileItem[]) => void): (() => void) => {
+    const listener = (_event: unknown, files: FileItem[]) => callback(files);
+    ipcRenderer.on('folder-new-files', listener);
+    return () => ipcRenderer.removeListener('folder-new-files', listener);
+  },
   getPrinters: (): Promise<PrinterInfo[]> => ipcRenderer.invoke('get-printers'),
   getPrinterOptions: (printerName: string): Promise<PrinterCapabilities & { raw: string }> =>
     ipcRenderer.invoke('get-printer-options', printerName),

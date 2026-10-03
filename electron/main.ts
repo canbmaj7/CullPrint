@@ -461,6 +461,78 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
   }
 });
 
+// 2b. Klasör izleme: seçili klasöre sonradan düşen fotoğraflar listeye eklenir.
+// fs.watch yerine 2 sn'lik yoklama: ağ/kart okuyucu/aktarım araçlarında olay kaçırmaz. Dosya boyutu
+// iki yoklamada aynı kalana dek beklenir ki hâlâ yazılmakta olan yarım dosya listeye girmesin.
+const WATCH_INTERVAL_MS = 2000;
+const WATCH_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+let folderWatchTimer: NodeJS.Timeout | null = null;
+
+function stopFolderWatch() {
+  if (folderWatchTimer) clearInterval(folderWatchTimer);
+  folderWatchTimer = null;
+}
+
+async function listImageNames(folderPath: string): Promise<string[]> {
+  const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
+  return entries
+    .filter((e) => e.isFile() && WATCH_IMAGE_EXTENSIONS.has(path.extname(e.name).toLowerCase()))
+    .map((e) => e.name);
+}
+
+ipcMain.handle('watch-folder', async (_event, folderPath: string) => {
+  stopFolderWatch();
+  let known: Set<string>;
+  try {
+    known = new Set(await listImageNames(folderPath));
+  } catch {
+    return false;
+  }
+  const lastSize = new Map<string, number>(); // yazılmakta olabilecek dosyaların önceki yoklamadaki boyutu
+  let busy = false;
+
+  const timer = setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const ready: { name: string; fullPath: string; size: number; mtimeMs: number }[] = [];
+      for (const name of await listImageNames(folderPath)) {
+        if (known.has(name)) continue;
+        const fullPath = path.join(folderPath, name);
+        let stat: fs.Stats;
+        try {
+          stat = await fs.promises.stat(fullPath);
+        } catch {
+          continue;
+        }
+        if (stat.size > 0 && lastSize.get(name) === stat.size) ready.push({ name, fullPath, size: stat.size, mtimeMs: stat.mtimeMs });
+        else lastSize.set(name, stat.size);
+      }
+      if (folderWatchTimer !== timer) return; // bu arada izleme durduruldu/değişti
+      const items = [];
+      for (const f of ready) {
+        known.add(f.name);
+        lastSize.delete(f.name);
+        const meta = await parseImageInfo(f.fullPath);
+        items.push({ name: f.name, path: f.fullPath, size: f.size, lastModified: f.mtimeMs, ...meta });
+      }
+      if (items.length > 0 && folderWatchTimer === timer) {
+        items.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+        mainWindow?.webContents.send('folder-new-files', items);
+      }
+    } catch (err) {
+      console.error('Klasör izleme hatası:', err);
+    } finally {
+      busy = false;
+    }
+  }, WATCH_INTERVAL_MS);
+  folderWatchTimer = timer;
+  return true;
+});
+
+ipcMain.handle('unwatch-folder', () => stopFolderWatch());
+app.on('will-quit', stopFolderWatch);
+
 // 3–8. Yazıcı işlemleri platforma göre seçilen arka uca devredilir (electron/print/)
 ipcMain.handle('get-printers', () => printBackend.getPrinters());
 ipcMain.handle('get-printer-options', (_event, printerName: string) => printBackend.getPrinterOptions(printerName));
