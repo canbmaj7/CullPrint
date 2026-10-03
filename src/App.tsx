@@ -433,7 +433,7 @@ export const App: React.FC = () => {
     if (!window.electronAPI || !e.dataTransfer.files) return;
 
     const files = Array.from(e.dataTransfer.files);
-    const validExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+    const validExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.arw']);
     const droppedFiles: FileItem[] = [];
 
     for (let i = 0; i < files.length; i++) {

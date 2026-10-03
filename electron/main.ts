@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import exifr from 'exifr';
 import { printBackend } from './print';
 import { renderPrintRasterFile, type RasterRequest } from './raster';
+import { RAW_EXTENSIONS, resolveImageSource } from './raw';
 import type { PrintRequest } from './print/types';
 
 // sharp (libvips) opsiyonel: yüklenemezse platformun yerel küçük resim API'sine, o da yoksa orijinale düşülür
@@ -51,6 +52,10 @@ const THUMB_CACHE_DIR =
     ? path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'cullprint', 'thumbs')
     : path.join(app.getPath('userData'), 'thumb-cache');
 const SPOOL_DIR = path.join(os.tmpdir(), 'cullprint-spool');
+// RAW (ARW) dosyalarından çıkarılan gömülü JPEG'ler; THUMB_CACHE_DIR altında olduğu için açılış/kapanışta onunla silinir
+const RAW_CACHE_DIR = path.join(THUMB_CACHE_DIR, 'raw');
+// Listeye alınan dosya türleri: RAW'larda önizleme ve baskı gömülü tam boyutlu JPEG'den üretilir (electron/raw.ts)
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', ...RAW_EXTENSIONS]);
 // Çalışma süresince son baskı dosyaları inceleme/hata ayıklama için tutulur; CUPS dosyayı lp anında kendi dizinine kopyalar
 const SPOOL_KEEP_COUNT = 20;
 
@@ -106,7 +111,9 @@ async function parseImageInfo(filePath: string) {
   let height = 4000;
 
   try {
-    const fd = await fs.promises.open(filePath, 'r');
+    // RAW'da boyut ve yön, çıkarılmış gömülü JPEG'den okunur (yön APP1 olarak yazılıdır)
+    const source = await resolveImageSource(filePath, RAW_CACHE_DIR);
+    const fd = await fs.promises.open(source, 'r');
     const buffer = Buffer.alloc(65536);
     await fd.read(buffer, 0, 65536, 0);
     await fd.close();
@@ -120,7 +127,7 @@ async function parseImageInfo(filePath: string) {
       const sharp = await loadSharp();
       if (sharp) {
         try {
-          const meta = await sharp(filePath).metadata();
+          const meta = await sharp(source).metadata();
           if (meta.width && meta.height) {
             width = meta.width;
             height = meta.height;
@@ -257,6 +264,7 @@ app.whenReady().then(() => {
         return new Response('File not found: ' + filePath, { status: 404 });
       }
 
+      filePath = await resolveImageSource(filePath, RAW_CACHE_DIR);
       const buffer = await fs.promises.readFile(filePath);
       const ext = path.extname(filePath).toLowerCase();
       const mimeTypes: Record<string, string> = {
@@ -333,7 +341,10 @@ app.whenReady().then(() => {
       // Aynı küçük resim için eşzamanlı istekler (önden yükleme + gerçek istek) tek üretimi paylaşır
       let pending = thumbJobs.get(cachePath);
       if (!pending) {
-        pending = generateThumbnail(filePath, size, cachePath).finally(() => thumbJobs.delete(cachePath));
+        const original = filePath;
+        pending = resolveImageSource(original, RAW_CACHE_DIR)
+          .then((source) => generateThumbnail(source, size, cachePath))
+          .finally(() => thumbJobs.delete(cachePath));
         thumbJobs.set(cachePath, pending);
       }
       const buffer = await pending;
@@ -382,7 +393,7 @@ ipcMain.handle('select-files', async () => {
     properties: ['openFile', 'multiSelections'],
     title: 'Fotoğraf Seçin (Tek veya Çoklu)',
     filters: [
-      { name: 'Fotoğraflar', extensions: ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG'] },
+      { name: 'Fotoğraflar', extensions: ['jpg', 'jpeg', 'png', 'webp', 'arw', 'JPG', 'JPEG', 'PNG', 'ARW'] },
     ],
   });
   if (result.canceled || result.filePaths.length === 0) return [];
@@ -431,13 +442,12 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
     if (!fs.existsSync(folderPath)) return [];
 
     const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
-    const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
     const files = [];
     for (const entry of entries) {
       if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
-        if (imageExtensions.has(ext)) {
+        if (IMAGE_EXTENSIONS.has(ext)) {
           const fullPath = path.join(folderPath, entry.name);
           const stat = await fs.promises.stat(fullPath);
           const meta = await parseImageInfo(fullPath);
@@ -465,7 +475,6 @@ ipcMain.handle('read-folder', async (_event, folderPath: string) => {
 // fs.watch yerine 2 sn'lik yoklama: ağ/kart okuyucu/aktarım araçlarında olay kaçırmaz. Dosya boyutu
 // iki yoklamada aynı kalana dek beklenir ki hâlâ yazılmakta olan yarım dosya listeye girmesin.
 const WATCH_INTERVAL_MS = 2000;
-const WATCH_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 let folderWatchTimer: NodeJS.Timeout | null = null;
 
 function stopFolderWatch() {
@@ -476,7 +485,7 @@ function stopFolderWatch() {
 async function listImageNames(folderPath: string): Promise<string[]> {
   const entries = await fs.promises.readdir(folderPath, { withFileTypes: true });
   return entries
-    .filter((e) => e.isFile() && WATCH_IMAGE_EXTENSIONS.has(path.extname(e.name).toLowerCase()))
+    .filter((e) => e.isFile() && IMAGE_EXTENSIONS.has(path.extname(e.name).toLowerCase()))
     .map((e) => e.name);
 }
 
@@ -598,7 +607,8 @@ ipcMain.handle(
 
     await fs.promises.mkdir(SPOOL_DIR, { recursive: true });
     const filePath = path.join(SPOOL_DIR, `spool_${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`);
-    await renderPrintRasterFile(sharp, req, filePath);
+    const source = await resolveImageSource(req.filePath, RAW_CACHE_DIR);
+    await renderPrintRasterFile(sharp, { ...req, filePath: source }, filePath);
     void pruneSpoolDir();
     return filePath;
   }
