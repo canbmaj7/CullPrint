@@ -3,6 +3,7 @@ import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw, Maximize, Cro
 import { FitMode, PhotoItem } from '../types';
 import { getCropAxis, getTargetRatio } from '../utils/crop';
 import { formatPaperSize } from '../utils/media';
+import { formatShot } from '../utils/shot';
 import {
   ADJUST_RANGE,
   buildColorTransform,
@@ -108,6 +109,8 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   const hasAdjust = !isNeutralAdjust(adjust);
   const adjustMatrix = hasAdjust ? toSvgColorMatrix(buildColorTransform(adjust)) : '';
 
+  const shotText = formatShot(photo.shot);
+
   // Mouse ile sürükleyerek kadraj kaydırma
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isFit) return;
@@ -145,6 +148,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
     >
       {/* Üst Bilgi Rozetleri */}
       <div className="viewer-top-bar">
+        <div className="photo-meta-stack">
         <div className="photo-meta-badge">
           <span className="file-name">{photo.name}</span>
           <span className="orientation-chip">
@@ -155,6 +159,14 @@ export const CropViewer: React.FC<CropViewerProps> = ({
           )}
           {isFit && <span className="fit-chip" title="Fotoğrafın tamamı basılır, kenarlarda beyaz boşluk kalır">SIĞDIR</span>}
           {hasAdjust && <span className="fit-chip" title="Bu fotoğrafa renk ayarı uygulandı; baskıya da yansır">RENK</span>}
+        </div>
+        {(shotText.dateTime || shotText.camera || shotText.exposure) && (
+          <div className="photo-shot-info">
+            {shotText.dateTime && <span title="Çekim tarihi ve saati">{shotText.dateTime}</span>}
+            {shotText.camera && <span title={shotText.lens ? `${shotText.camera} · ${shotText.lens}` : shotText.camera}>{shotText.camera}</span>}
+            {shotText.exposure && <span title="Pozlama: enstantane · diyafram · ISO · odak uzaklığı">{shotText.exposure}</span>}
+          </div>
+        )}
         </div>
 
         {photo.printed && (

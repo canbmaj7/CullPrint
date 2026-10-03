@@ -9,6 +9,16 @@ export interface FileItem {
   width?: number;
   height?: number;
   isLandscape?: boolean;
+  // Çekim bilgisi (EXIF); takenAt, saat dilimsiz yazılan çekim saatinin UTC alanlarıyla ms karşılığıdır (olduğu gibi gösterilir)
+  shot?: {
+    takenAt?: number;
+    camera?: string;
+    lens?: string;
+    exposureTime?: number;
+    fNumber?: number;
+    iso?: number;
+    focalLength?: number;
+  };
 }
 
 export interface PrinterInfo {

@@ -6,6 +6,12 @@ Windows yazdırma arka ucu yazıldı ama gerçek Windows + DS620 ile henüz dene
 run 35460504144'ün `.exe`'siyle (taşınabilir `CullPrint 1.0.0.exe`) test edecek. Sonuçlar gelince önce
 onlara göre düzeltme yapılacak. Uygulama artık yazıcıdan bağımsız sunuluyor (README: "DS620 ile test edildi").
 
+## Son Eklenenler (2026-10-03)
+Klasör izleme, ARW desteği, renk ayarı, fotoğraf bilgisi ve baskı öncesi iptal süresi eklendi (ayrıntı: `ilerleme.md`).
+Gerçek yazıcıyla yalnızca renk ayarsız/ARW'siz yol ve CUPS filtresi doğrulandı; arayüz akışları (bekleme/iptal, panel,
+EXIF satırı) izole bir test örneğinde (ayrı `--user-data-dir`, sahte `lp`, Chrome DevTools protokolü) denendi.
+Dev sunucusu `electron/` değişince bazen "esbuild service is no longer running" der: vite'i kapatıp yeniden başlat.
+
 ## Tamamlanan Geliştirme Adımları
 1. **İsim:** `CullPrint` (*Fast Photo Culling & Direct Print for DNP DS620*) olarak belirlendi.
 2. **Mimari & Proje Kurulumu:**

@@ -7,6 +7,7 @@ import exifr from 'exifr';
 import { printBackend } from './print';
 import { renderPrintRasterFile, type RasterRequest } from './raster';
 import { RAW_EXTENSIONS, resolveImageSource } from './raw';
+import { readShotInfo } from './shot';
 import type { PrintRequest } from './print/types';
 
 // sharp (libvips) opsiyonel: yüklenemezse platformun yerel küçük resim API'sine, o da yoksa orijinale düşülür
@@ -160,7 +161,7 @@ async function parseImageInfo(filePath: string) {
   }
   const isLandscape = width >= height;
 
-  return { orientation, width, height, isLandscape };
+  return { orientation, width, height, isLandscape, shot: await readShotInfo(filePath) };
 }
 
 // Custom protocol for serving local media securely

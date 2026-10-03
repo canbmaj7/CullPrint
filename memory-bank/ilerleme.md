@@ -46,7 +46,17 @@
       ve aynı hesabı kullanır; raster ve CUPS filtre zinciri gerçek dosyayla doğrulandı (ayrıntı: `aktifBaglam.md`).
       Yazıcıda fiziksel test edilmedi.
 
+- [x] **Klasör izleme (2026-10-03):** seçili klasöre sonradan düşen fotoğraflar listenin sonuna eklenir, silinenler
+      listeden çıkar (`electron/main.ts` 2 sn'lik yoklama; boyut iki yoklamada sabit kalana dek beklenir).
+- [x] **ARW (Sony RAW) desteği (2026-10-03):** `electron/raw.ts` ARW içindeki gömülü tam boyutlu JPEG'i çıkarır
+      (A7 V'te 7008x4672); önizleme/küçük resim/baskı bu JPEG'i kullanır. Gerçek RAW çözme (demosaic) YOK.
+- [x] **Renk ayarı (2026-10-03):** parlaklık/kontrast/doygunluk/sıcaklık, fotoğraf başına, tek hesap `src/utils/adjust.ts`
+      (önizleme SVG matrisi = sharp = canvas yedeği). Nötr ayar çıktıyı eskisiyle bayt bayt aynı bırakır.
+- [x] **Fotoğraf bilgisi (2026-10-03):** ad satırının altında çekim tarihi-saati, kamera, pozlama (`electron/shot.ts`, EXIF).
+- [x] **Baskı öncesi iptal süresi (2026-10-03):** Space/Enter sonrası varsayılan 2 sn bekler, Esc/İptal ile vazgeçilir;
+      süre Ayarlar'dan değişir (0-10 sn, 0 = anında; `cullprint_print_delay_sec`). Tekrar Bas (kuyruk çekmecesi) beklemez.
+
 - [ ] Oturum yedeği ve çökme sonrası kurtarma (plan: `planOturumYedegi.md`; önce açık sorular kullanıcıyla netleşecek).
 
 - [ ] İsteğe bağlı: Fotoğraf üzerine stüdyo logosu / filigran basma seçeneği.
-- [ ] İsteğe bağlı: Hafif pozlama / kontrast telafisi ayarı.
+- [x] Hafif pozlama / kontrast telafisi ayarı → renk ayarı olarak yapıldı (yukarıda).

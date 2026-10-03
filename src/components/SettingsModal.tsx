@@ -11,6 +11,8 @@ interface SettingsModalProps {
   isLoadingCapabilities: boolean;
   currentSettings: PrinterSettings;
   onSave: (settings: PrinterSettings) => void;
+  printDelaySeconds: number; // baskıdan önceki iptal süresi (0 = anında)
+  onChangePrintDelay: (seconds: number) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -21,6 +23,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isLoadingCapabilities,
   currentSettings,
   onSave,
+  printDelaySeconds,
+  onChangePrintDelay,
 }) => {
   const [localSettings, setLocalSettings] = useState<PrinterSettings>(currentSettings);
 
@@ -88,6 +92,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* İçerik */}
         <div className="settings-content">
+          {/* Uygulama ayarı (yazıcıdan bağımsız, anında kaydedilir) */}
+          <div className="settings-option-card">
+            <div className="settings-option-header">
+              <span className="settings-option-title">Baskı öncesi bekleme</span>
+              <span className="setting-badge-pill">Uygulama</span>
+            </div>
+            <div className="print-delay-row">
+              <input
+                type="range"
+                min={0}
+                max={10}
+                step={1}
+                value={printDelaySeconds}
+                onChange={(e) => onChangePrintDelay(Number(e.target.value))}
+                onPointerUp={(e) => e.currentTarget.blur()}
+              />
+              <span className="print-delay-value">{printDelaySeconds === 0 ? 'Kapalı' : `${printDelaySeconds} sn`}</span>
+            </div>
+            <p className="settings-hint">
+              Baskıya basınca iş yazıcıya gitmeden bu kadar bekler; vazgeçmek için İptal ya da Esc. 0 = anında gönder.
+            </p>
+          </div>
+
           {isLoadingCapabilities ? (
             <div className="settings-loading">
               <Loader2 size={24} className="animate-spin" />

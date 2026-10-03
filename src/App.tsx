@@ -12,11 +12,17 @@ import { Filmstrip } from './components/Filmstrip';
 import { PrinterSidebar } from './components/PrinterSidebar';
 import { QueueDrawer } from './components/QueueDrawer';
 import { SettingsModal } from './components/SettingsModal';
+import { PendingPrintBar, type PendingPrint } from './components/PendingPrintBar';
 import { FileItem } from './vite-env';
 
 // Fotoğraf başına basılan kopya sayısı kalıcıdır: uygulama kapanıp açılınca ya da klasör yeniden
 // açılınca "Basıldı" rozetleri kaybolup aynı fotoğraf iki kez basılmasın diye.
 const PRINTED_STORAGE_KEY = 'cullprint_printed_counts';
+const PRINT_DELAY_KEY = 'cullprint_print_delay_sec';
+const DEFAULT_PRINT_DELAY_SEC = 2;
+const MAX_PRINT_DELAY_SEC = 10;
+const clampPrintDelay = (value: number) =>
+  Number.isFinite(value) ? Math.max(0, Math.min(MAX_PRINT_DELAY_SEC, Math.round(value))) : DEFAULT_PRINT_DELAY_SEC;
 
 // Anahtar dosya yolu DEĞİL, dosyanın kimliğidir: aynı kare SD karttan da diske kopyalanmış hâlinden
 // de açılabilir, kartın bağlanma noktası (ör. /run/media/can/<ETİKET>/) her takılışta değişebilir.
@@ -590,6 +596,43 @@ export const App: React.FC = () => {
   // Hazırlanırken iptal istenen işler: sırası gelince hiç gönderilmez, gönderildiyse anında geri çekilir
   const cancelRequestedRef = useRef<Set<string>>(new Set());
 
+  // Baskı öncesi iptal süresi: Space/Enter'dan sonra iş bu kadar bekler, Esc/İptal ile vazgeçilebilir (0 = anında)
+  const [printDelaySec, setPrintDelaySec] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(PRINT_DELAY_KEY);
+      if (saved !== null) return clampPrintDelay(Number(saved));
+    } catch {}
+    return DEFAULT_PRINT_DELAY_SEC;
+  });
+  const handleChangePrintDelay = useCallback((seconds: number) => {
+    const value = clampPrintDelay(seconds);
+    setPrintDelaySec(value);
+    try {
+      localStorage.setItem(PRINT_DELAY_KEY, String(value));
+    } catch {}
+  }, []);
+  // Bekleyenlerin tek doğruluk kaynağı ref'tir (klavye işleyicisi ve zamanlayıcılar güncel listeyi buradan okur)
+  const [pendingPrints, setPendingPrints] = useState<PendingPrint[]>([]);
+  const pendingPrintsRef = useRef<PendingPrint[]>([]);
+  const pendingTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const updatePending = useCallback((update: (prev: PendingPrint[]) => PendingPrint[]) => {
+    pendingPrintsRef.current = update(pendingPrintsRef.current);
+    setPendingPrints(pendingPrintsRef.current);
+  }, []);
+  const cancelPendingPrint = useCallback(
+    (id: string) => {
+      const timer = pendingTimersRef.current.get(id);
+      if (timer) clearTimeout(timer);
+      pendingTimersRef.current.delete(id);
+      updatePending((prev) => prev.filter((p) => p.id !== id));
+    },
+    [updatePending]
+  );
+  useEffect(() => {
+    const timers = pendingTimersRef.current;
+    return () => timers.forEach((timer) => clearTimeout(timer));
+  }, []);
+
   const enqueuePrint = useCallback(
     (job: PrintJob, effectiveIsLandscape: boolean, isReprint: boolean) => {
       if (!window.electronAPI || !selectedPrinter || preparingPathsRef.current.has(job.photoPath)) return;
@@ -708,8 +751,7 @@ export const App: React.FC = () => {
     const isRotated90 = currentPhoto.userRotation === 90 || currentPhoto.userRotation === 270;
     const effectiveIsLandscape = isRotated90 ? !currentPhoto.isLandscape : (currentPhoto.isLandscape ?? true);
     setLastPrintStatus(null);
-    enqueuePrint(
-      {
+    const job: PrintJob = {
         id: `job_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         photoName: currentPhoto.name,
         photoPath: currentPhoto.path,
@@ -725,11 +767,25 @@ export const App: React.FC = () => {
         fitMode: currentFitMode,
         // Nötr ayar hiç saklanmaz: eski davranışla bit düzeyinde aynı baskı
         adjust: isNeutralAdjust(currentPhoto.adjust) ? undefined : { ...currentPhoto.adjust! },
-      },
-      effectiveIsLandscape,
-      false
-    );
-  }, [currentPhoto, currentFitMode, copies, finish, printerSettings, enqueuePrint]);
+    };
+
+    if (printDelaySec <= 0) {
+      enqueuePrint(job, effectiveIsLandscape, false);
+      return;
+    }
+    // Aynı kare zaten iptal süresindeyse ikinci kez bekletme/basma
+    if (pendingPrintsRef.current.some((p) => p.photoPath === currentPhoto.path)) return;
+
+    // İş (ayarlar, yazıcı, kâğıt dahil) basıldığı anda sabitlendi; süre dolunca olduğu gibi kuyruğa girer
+    const delayMs = printDelaySec * 1000;
+    updatePending((prev) => [...prev, { id: job.id, photoPath: currentPhoto.path, photoName: currentPhoto.name, delayMs }]);
+    const timer = setTimeout(() => {
+      pendingTimersRef.current.delete(job.id);
+      updatePending((prev) => prev.filter((p) => p.id !== job.id));
+      enqueuePrint(job, effectiveIsLandscape, false);
+    }, delayMs);
+    pendingTimersRef.current.set(job.id, timer);
+  }, [currentPhoto, currentFitMode, copies, finish, printerSettings, enqueuePrint, printDelaySec, updatePending]);
 
   // 4.5. Tekrar Bas (Reprint) - Kuyruk Çekmecesinden
   const handleReprintJob = useCallback(
@@ -921,6 +977,14 @@ export const App: React.FC = () => {
             setIsQueueOpen(false);
             break;
           }
+          // Hiçbir panel açık değilse Esc, iptal süresindeki en son baskıyı geri alır
+          {
+            const latest = pendingPrintsRef.current[pendingPrintsRef.current.length - 1];
+            if (latest) {
+              e.preventDefault();
+              cancelPendingPrint(latest.id);
+            }
+          }
           break;
 
         case '1':
@@ -953,6 +1017,7 @@ export const App: React.FC = () => {
     filteredPhotos.length,
     isQueueOpen,
     isSettingsOpen,
+    cancelPendingPrint,
   ]);
 
   // İstatistikler
@@ -1069,6 +1134,8 @@ export const App: React.FC = () => {
         printerMarkerLevel={printers.find((p) => p.name === selectedPrinter)?.markerLevel}
       />
 
+      <PendingPrintBar items={pendingPrints} onCancel={cancelPendingPrint} />
+
       {/* Yazıcı Ayarları Modalı */}
       <SettingsModal
         isOpen={isSettingsOpen}
@@ -1078,6 +1145,8 @@ export const App: React.FC = () => {
         isLoadingCapabilities={isLoadingCapabilities}
         currentSettings={printerSettings}
         onSave={handleSaveSettings}
+        printDelaySeconds={printDelaySec}
+        onChangePrintDelay={handleChangePrintDelay}
       />
     </div>
   );

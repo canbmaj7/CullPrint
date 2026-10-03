@@ -23,6 +23,16 @@ export interface PhotoItem {
   userRotation: number; // 0, 90, 180, 270
   fitMode?: FitMode; // tanımsız = 'fill'; F tuşu bu fotoğraf için sığdırmaya geçirir
   adjust?: ColorAdjust; // renk ayarı; tanımsız = nötr (hiç uygulanmaz)
+  // Çekim bilgisi (EXIF); takenAt, saat dilimsiz yazılan çekim saatinin UTC alanlarıyla ms karşılığıdır (olduğu gibi gösterilir)
+  shot?: {
+    takenAt?: number;
+    camera?: string;
+    lens?: string;
+    exposureTime?: number;
+    fNumber?: number;
+    iso?: number;
+    focalLength?: number;
+  };
 }
 
 export type FilterMode = 'all' | 'unprinted' | 'printed';
