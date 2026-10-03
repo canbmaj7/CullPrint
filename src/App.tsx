@@ -1076,9 +1076,6 @@ export const App: React.FC = () => {
             onAdjustCrop={handleAdjustCrop}
             onResetCrop={handleResetCrop}
             onToggleFit={handleToggleFit}
-            onAdjustChange={handleAdjustChange}
-            onResetAdjust={handleResetAdjust}
-            onApplyAdjustToAll={handleApplyAdjustToAll}
           />
         </main>
 
@@ -1103,6 +1100,10 @@ export const App: React.FC = () => {
           onToggleQueue={handleToggleQueue}
           cupsJobProblem={cupsJobProblem}
           isTogglingQueue={isTogglingQueue}
+          adjust={currentPhoto?.adjust ?? NEUTRAL_ADJUST}
+          onAdjustChange={handleAdjustChange}
+          onResetAdjust={handleResetAdjust}
+          onApplyAdjustToAll={handleApplyAdjustToAll}
         />
       </div>
 

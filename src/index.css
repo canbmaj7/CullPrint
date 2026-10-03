@@ -503,36 +503,7 @@ body {
   background-color: var(--bg-hover);
 }
 
-/* Renk ayarı paneli (Renk düğmesiyle açılır, alt kontrollerin üstünde durur) */
-.viewer-bottom-controls {
-  position: relative;
-}
-
-.adjust-panel {
-  position: absolute;
-  right: 16px;
-  bottom: calc(100% - 4px);
-  width: 300px;
-  padding: 12px 14px;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  z-index: 20;
-}
-
-.adjust-panel-title {
-  font-size: 12px;
-  font-weight: var(--weight-medium);
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.adjust-panel-title span {
-  color: var(--text-muted);
-  font-weight: normal;
-}
-
+/* Renk ayarı kartı (kenar çubuğunda, YAZDIR'ın üstünde) */
 .adjust-row {
   display: grid;
   grid-template-columns: 72px 1fr 34px;
@@ -554,13 +525,49 @@ body {
   color: var(--text-primary);
 }
 
-.adjust-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
+/* Kompakt satırlar: kart YAZDIR'ın üstünde, yer az */
+.color-adjust-card {
+  gap: 4px;
 }
 
-.adjust-actions .action-btn:disabled {
+.color-adjust-card .adjust-row {
+  grid-template-columns: 68px 1fr 32px;
+  gap: 6px;
+  padding: 1px 0;
+}
+
+.adjust-reset-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.adjust-reset-link:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.adjust-apply-all {
+  margin-top: 4px;
+  background-color: var(--bg-hover);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.adjust-apply-all:hover:not(:disabled) {
+  border-color: var(--border-focus);
+}
+
+.adjust-apply-all:disabled {
   opacity: 0.4;
   cursor: default;
 }

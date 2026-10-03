@@ -1,25 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw, Maximize, Crop, SlidersHorizontal } from 'lucide-react';
+import { RotateCw, Check, MoveVertical, MoveHorizontal, RefreshCw, Maximize, Crop } from 'lucide-react';
 import { FitMode, PhotoItem } from '../types';
 import { getCropAxis, getTargetRatio } from '../utils/crop';
 import { formatPaperSize } from '../utils/media';
 import { formatShot } from '../utils/shot';
 import {
-  ADJUST_RANGE,
   buildColorTransform,
   isNeutralAdjust,
   NEUTRAL_ADJUST,
   toSvgColorMatrix,
-  type ColorAdjust,
 } from '../utils/adjust';
-
-// Ayar kaydırıcıları: etiket ve sıra
-const ADJUST_FIELDS: { key: keyof ColorAdjust; label: string }[] = [
-  { key: 'brightness', label: 'Parlaklık' },
-  { key: 'contrast', label: 'Kontrast' },
-  { key: 'saturation', label: 'Doygunluk' },
-  { key: 'temperature', label: 'Sıcaklık' },
-];
 
 interface CropViewerProps {
   photo: PhotoItem | null;
@@ -29,9 +19,6 @@ interface CropViewerProps {
   onAdjustCrop: (deltaX: number, deltaY: number) => void;
   onResetCrop: () => void;
   onToggleFit: () => void;
-  onAdjustChange: (next: ColorAdjust) => void;
-  onResetAdjust: () => void;
-  onApplyAdjustToAll: () => void;
 }
 
 export const CropViewer: React.FC<CropViewerProps> = ({
@@ -42,9 +29,6 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   onAdjustCrop,
   onResetCrop,
   onToggleFit,
-  onAdjustChange,
-  onResetAdjust,
-  onApplyAdjustToAll,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -53,7 +37,6 @@ export const CropViewer: React.FC<CropViewerProps> = ({
   // önce tetiklenip görseli görünmez bırakabiliyordu
   const [loadedPath, setLoadedPath] = useState<string | null>(null);
   const imgLoaded = loadedPath === photo?.path;
-  const [isAdjustOpen, setIsAdjustOpen] = useState(false);
 
   useEffect(() => {
     const handleGlobalMouseUp = () => setIsDragging(false);
@@ -246,61 +229,7 @@ export const CropViewer: React.FC<CropViewerProps> = ({
           )}
         </div>
 
-        {isAdjustOpen && (
-          <div
-            className="adjust-panel"
-            // Panel üzerindeki fare hareketi kadraj sürüklemesini başlatmasın
-            onMouseDown={(e) => e.stopPropagation()}
-            onMouseMove={(e) => e.stopPropagation()}
-          >
-            <div className="adjust-panel-title">Renk ayarı <span>(bu fotoğraf)</span></div>
-            {ADJUST_FIELDS.map(({ key, label }) => (
-              <label key={key} className="adjust-row">
-                <span className="adjust-label">{label}</span>
-                <input
-                  type="range"
-                  min={-ADJUST_RANGE}
-                  max={ADJUST_RANGE}
-                  step={1}
-                  value={adjust[key]}
-                  onChange={(e) => onAdjustChange({ ...adjust, [key]: Number(e.target.value) })}
-                  // Çift tık: yalnızca bu ayarı sıfırla
-                  onDoubleClick={() => onAdjustChange({ ...adjust, [key]: 0 })}
-                  // Kaydırıcı odakta kalırsa Space/ok tuşları baskı ve gezinme yerine ona gider
-                  onPointerUp={(e) => e.currentTarget.blur()}
-                />
-                <span className="adjust-value">{adjust[key] > 0 ? `+${adjust[key]}` : adjust[key]}</span>
-              </label>
-            ))}
-            <div className="adjust-actions">
-              <button className="action-btn text-btn" onClick={onResetAdjust} disabled={!hasAdjust}>
-                <RefreshCw size={13} />
-                Sıfırla
-              </button>
-              <button
-                className="action-btn"
-                onClick={onApplyAdjustToAll}
-                title="Bu ayarı listedeki tüm fotoğraflara kopyala"
-              >
-                Tümüne uygula
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="control-btn-group">
-          <button
-            className={`action-btn ${isAdjustOpen || hasAdjust ? 'active' : ''}`}
-            onClick={(e) => {
-              setIsAdjustOpen((open) => !open);
-              e.currentTarget.blur();
-            }}
-            title="Renk ayarı: parlaklık, kontrast, doygunluk, sıcaklık"
-          >
-            <SlidersHorizontal size={14} />
-            <span>Renk</span>
-          </button>
-
           <button
             className={`action-btn ${isFit ? 'active' : ''}`}
             onClick={onToggleFit}

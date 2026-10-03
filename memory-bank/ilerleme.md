@@ -52,6 +52,7 @@
       (A7 V'te 7008x4672); önizleme/küçük resim/baskı bu JPEG'i kullanır. Gerçek RAW çözme (demosaic) YOK.
 - [x] **Renk ayarı (2026-10-03):** parlaklık/kontrast/doygunluk/sıcaklık, fotoğraf başına, tek hesap `src/utils/adjust.ts`
       (önizleme SVG matrisi = sharp = canvas yedeği). Nötr ayar çıktıyı eskisiyle bayt bayt aynı bırakır.
+      Arayüz: sağ panelde YAZDIR'ın hemen üstünde "Renk Ayarı" kartı (`ColorAdjustCard`): 4 kaydırıcı, Sıfırla, Tümüne uygula.
 - [x] **Fotoğraf bilgisi (2026-10-03):** ad satırının altında çekim tarihi-saati, kamera, pozlama (`electron/shot.ts`, EXIF).
 - [x] **Baskı öncesi iptal süresi (2026-10-03):** Space/Enter sonrası varsayılan 2 sn bekler, Esc/İptal ile vazgeçilir;
       süre Ayarlar'dan değişir (0-10 sn, 0 = anında; `cullprint_print_delay_sec`). Tekrar Bas (kuyruk çekmecesi) beklemez.

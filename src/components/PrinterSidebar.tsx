@@ -3,6 +3,8 @@ import { Printer, Sparkles, Copy, Keyboard, CheckCircle, AlertCircle, Loader2, P
 import { PrinterState, PrinterSettings, PrinterCapabilities } from '../types';
 import { describeFinish, finishDisplayName, FINISH_SECTION_HINT } from '../utils/finish';
 import { formatPaperSize } from '../utils/media';
+import { ColorAdjustCard } from './ColorAdjustCard';
+import type { ColorAdjust } from '../utils/adjust';
 
 interface PrinterSidebarProps {
   printers: PrinterState[];
@@ -22,6 +24,10 @@ interface PrinterSidebarProps {
   onToggleQueue: () => void;
   isTogglingQueue: boolean;
   cupsJobProblem: string | null;
+  adjust: ColorAdjust; // seçili fotoğrafın renk ayarı
+  onAdjustChange: (next: ColorAdjust) => void;
+  onResetAdjust: () => void;
+  onApplyAdjustToAll: () => void;
 }
 
 const QUEUE_STATUS_LABELS: Record<string, string> = {
@@ -48,6 +54,10 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
   onToggleQueue,
   isTogglingQueue,
   cupsJobProblem,
+  adjust,
+  onAdjustChange,
+  onResetAdjust,
+  onApplyAdjustToAll,
 }) => {
   const activePrinter = printers.find((p) => p.name === selectedPrinter);
   const isQueuePaused = activePrinter?.status === 'disabled';
@@ -299,6 +309,15 @@ export const PrinterSidebar: React.FC<PrinterSidebarProps> = ({
           ))}
         </div>
       </div>
+
+      {/* 2b. Renk ayarı: YAZDIR düğmesinin hemen üstünde */}
+      <ColorAdjustCard
+        adjust={adjust}
+        disabled={!hasPhoto}
+        onChange={onAdjustChange}
+        onReset={onResetAdjust}
+        onApplyToAll={onApplyAdjustToAll}
+      />
 
       {/* 3. Dev Yazdırma Butonu */}
       <div className="sidebar-action-area">
