@@ -3,6 +3,7 @@
 // Her çağrı sabit bir CP-* fonksiyon adı + base64 JSON parametre taşır; shell kullanılmaz,
 // betik metnine kullanıcı verisi gömülmez.
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import hostScript from './windows.ps1?raw';
@@ -19,6 +20,21 @@ import type {
 const DEFAULT_TIMEOUT_MS = 20_000;
 // Baskı, sürücü işi biriktirene kadar sürer
 const PRINT_TIMEOUT_MS = 120_000;
+
+// Sahadaki kuyruk sorununu ölçmek için düz metin günlük (%APPDATA%\\CullPrint\\windows-yazdirma.log).
+// Her açılışta sıfırlanır; yazılamazsa baskıyı etkilemez.
+let diagPath: string | null = null;
+function diag(message: string) {
+  try {
+    if (!diagPath) {
+      diagPath = path.join(app.getPath('userData'), 'windows-yazdirma.log');
+      fs.writeFileSync(diagPath, '');
+    }
+    fs.appendFileSync(diagPath, `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // günlük isteğe bağlı
+  }
+}
 
 const ERROR_LABELS: Record<string, string> = {
   CP_PRINTER_NOT_FOUND: 'Yazıcı bulunamadı',
@@ -42,7 +58,10 @@ class PowerShellHost {
     proc.stdout.setEncoding('utf8');
     proc.stdout.on('data', (chunk: string) => this.onStdout(chunk));
     proc.stderr.setEncoding('utf8');
-    proc.stderr.on('data', (chunk: string) => console.warn('[powershell]', chunk.trim()));
+    proc.stderr.on('data', (chunk: string) => {
+      console.warn('[powershell]', chunk.trim());
+      diag(`powershell stderr: ${chunk.trim()}`);
+    });
     proc.stdin.on('error', (err) => console.warn('[powershell] stdin:', err));
     proc.on('error', (err) => this.stop(proc, err));
     proc.on('exit', () => this.stop(proc, new Error('PowerShell süreci beklenmedik şekilde kapandı')));
@@ -59,6 +78,7 @@ class PowerShellHost {
 
   private stop(proc: ChildProcessWithoutNullStreams, reason: Error) {
     if (this.proc !== proc) return;
+    diag(`powershell süreci durduruldu: ${reason.message}`);
     this.proc = null;
     this.stdoutBuffer = '';
     this.pending.forEach((entry) => {
@@ -378,6 +398,7 @@ async function executePrint({
     )) as { jobId: number | null }[];
 
     const jobId = result?.jobId;
+    diag(`baskı gönderildi: yazıcı=${JSON.stringify(printerName)} belge=${JSON.stringify(docName)} jobId=${jobId}`);
     return {
       success: true,
       output: jobId != null ? `Windows kuyruğuna gönderildi (iş #${jobId})` : 'Windows kuyruğuna gönderildi',
@@ -386,6 +407,7 @@ async function executePrint({
     };
   } catch (err) {
     console.error('Windows yazdırma işlemi başarısız:', err);
+    diag(`baskı başarısız: ${err instanceof Error ? err.message : String(err)}`);
     return { success: false, output: '', error: err instanceof Error ? err.message : String(err) };
   }
 }
@@ -446,30 +468,44 @@ function describeJobProblem(status: string): string | undefined {
   return undefined;
 }
 
+// Günlük her 3 sn'de bir dolmasın: kuyruk yalnızca değişince yazılır
+let lastLoggedQueue = '';
+
 const getQueue = coalesce(async (): Promise<QueueJob[]> => {
+  let jobs: WinJob[];
   try {
-    const jobs = (await host.call('CP-GetJobs')) as WinJob[];
-    return jobs.map((job) => {
-      const id = `${job.printer}-${job.id}`;
-      lastSeenJobStatus.set(id, job.status);
-      return {
-        id,
-        printer: job.printer,
-        user: job.user,
-        size: String(job.size),
-        date: job.submitted,
-        statusMessage: job.status || undefined,
-        problem: describeJobProblem(job.status),
-      };
-    });
+    jobs = (await host.call('CP-GetJobs')) as WinJob[];
   } catch (err) {
+    // Boş liste dönersek renderer bekleyen işleri "kuyruktan çıktı, basıldı" sayar: hatayı ilet,
+    // senkron bu turu atlasın
     console.warn('Windows kuyruğu okunamadı:', err);
-    return [];
+    diag(`kuyruk okunamadı: ${err instanceof Error ? err.message : String(err)}`);
+    lastLoggedQueue = '';
+    throw err;
   }
+  const summary = jobs.map((job) => `${job.printer}-${job.id} [${job.status}] ${job.name}`).join(' | ');
+  if (summary !== lastLoggedQueue) {
+    diag(`kuyruk (${jobs.length}): ${summary || '-'}`);
+    lastLoggedQueue = summary;
+  }
+  return jobs.map((job) => {
+    const id = `${job.printer}-${job.id}`;
+    lastSeenJobStatus.set(id, job.status);
+    return {
+      id,
+      printer: job.printer,
+      user: job.user,
+      size: String(job.size),
+      date: job.submitted,
+      statusMessage: job.status || undefined,
+      problem: describeJobProblem(job.status),
+    };
+  });
 });
 
 async function getJobState(jobId: string): Promise<{ state: string; message?: string }> {
   const status = lastSeenJobStatus.get(jobId);
+  diag(`iş kuyrukta görünmüyor, sonuç soruluyor: ${JSON.stringify(jobId)} son durum=${status ?? 'hiç görülmedi'}`);
   lastSeenJobStatus.delete(jobId);
   if (!status) return { state: 'unknown' };
   if (/Deleting|Deleted/.test(status)) return { state: 'canceled' };

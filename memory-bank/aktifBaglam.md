@@ -197,7 +197,14 @@ boş dönüyor (`windows.ts` catch → `[]`). Kuyruk boş dönünce `App.tsx`'te
 "kuyruktan çıkmış, demek bitti" sayıp `completed` yapıyor (`App.tsx` ~187-228). Kod tarafında adlar
 tutarlı görünüyor (`CP-GetPrinters` ve `CP-GetJobs` ikisi de `$q.FullName` kullanıyor).
 
-**Sonraki adım — önce ölç, kod yazma.** Kullanıcı yazıcı duraklatılmışken 1 iş gönderip çekmecedeki
+**2026-10-31: ölçüm uygulamaya gömüldü.** `windows.ts` artık `%APPDATA%\CullPrint\windows-yazdirma.log`
+dosyasına yazıyor (her açılışta sıfırlanır): gönderilen işin yazıcı adı + jobId, kuyruk her değiştiğinde
+tüm kimlikler ve durumları, kuyruk okuma hataları/zaman aşımları, PowerShell'in durması ve uygulamanın
+"iş kuyrukta yok" dediği an. Ayrıca `getQueue` hata olunca `[]` yerine hata fırlatıyor; böylece okunamayan
+kuyruk işleri yanlışlıkla "Basıldı" yapmıyor (renderer o turu atlıyor). Sorun sürerse günlükte
+`baskı gönderildi` satırındaki `yazıcı-jobId` ile `kuyruk` satırlarındaki kimlikler karşılaştırılacak.
+
+Eski el yöntemi (günlük yetmezse): Kullanıcı yazıcı duraklatılmışken 1 iş gönderip çekmecedeki
 `#<no>`yu not edecek, sonra şu komutu çalıştıracak (uygulamanın ürettiği kimliğin aynısını basar):
 
 ```powershell
@@ -225,6 +232,5 @@ geçilir; yazıcı adı farklıysa kimlik biçimi düzeltilir. Uygulamadaki yaz�
    bulunamazsa yedek plan: iki ayrı Windows yazıcı örneği (Parlak/Mat).
 2. **Oturum yedeği / çökme kurtarma** — `planOturumYedegi.md`; önce 6 açık soruyu kullanıcıyla netleştir.
 3. Sahada gerçek bir düğünde uzun seri baskı testi (yüzlerce fotoğraf, rulo bitişi, ribbon bitişi).
-4. İsteğe bağlı temizlik: kullanılmayan `src/utils/exif.ts` (aynı EXIF metin hatası var, hiçbir yer içe aktarmıyor);
-   `electron/main.ts`'teki eski sharp tip hataları (`npx tsc -p tsconfig.node.json` ile görünür, `npm run compile` denetlemiyor);
-   `example/` test fotoğrafları klasörü git'te izlenmiyor (`.gitignore`'a eklenebilir).
+4. İsteğe bağlı temizlik: `electron/main.ts`'teki eski sharp tip hataları (`npx tsc -p tsconfig.node.json` ile görünür, `npm run compile` denetlemiyor);
+   (`exif.ts` silindi, `example/` `.gitignore`'a eklendi — 2026-10-31.)
